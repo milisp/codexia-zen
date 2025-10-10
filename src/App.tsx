@@ -1,10 +1,14 @@
-import "./App.css";
-import { ChatContainer } from "@/components/chat/ChatContainer";
+import './App.css';
+import { ChatView } from '@/components/ChatView';
+import { SidebarProvider } from '@/components/ui/sidebar';
 
 export default function App() {
+
   return (
-    <div className="flex h-screen w-full flex-col bg-background text-foreground">
-      <ChatContainer />
+    <div className="bg-background text-foreground h-screen">
+      <SidebarProvider className="h-full">
+        <ChatView />
+      </SidebarProvider>
     </div>
   );
 }

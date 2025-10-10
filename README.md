@@ -1,7 +1,28 @@
-# Tauri + React + Typescript
+# Codexia zen
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+[![Stars](https://img.shields.io/github/stars/milisp/codexia-zen?style=social)](https://github.com/milisp/codexia-zen/stargazers)
 
-## Recommended IDE Setup
+a powerful GUI for OpenAI Codex CLI
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## Build from source Prerequisites
+
+- Tauri prerequisites: https://v2.tauri.app/start/prerequisites/
+
+### Installation
+
+Clone and install dependencies:
+```bash
+git clone https://github.com/milisp/codexia-zen
+cd codexia-zen
+bun install
+```
+
+Run development build:
+```bash
+bun tauri dev
+```
+
+Build for production:
+```bash
+bun tauri build
+```
