@@ -1,8 +1,21 @@
 # Codexia zen
 
 [![Stars](https://img.shields.io/github/stars/milisp/codexia-zen?style=social)](https://github.com/milisp/codexia-zen/stargazers)
+[![Follow on 𝕏](https://img.shields.io/badge/𝕏-@lisp__mi-1c9bf0)](http://x.com/intent/follow?screen_name=lisp_mi)
 
-a powerful GUI for OpenAI Codex CLI
+a minimalist design GUI for OpenAI Codex CLI
+
+> [!TIP]
+> **⭐ Star the repo and follow [milisp](https://github.com/milisp) on Github for more project**.
+
+## Related project
+- [Codexia](https://github.com/milisp/codexia) - A powerful GUI and Toolkit for OpenAI Codex CLI
+- [Codexsm](https://github.com/milisp/codexsm) - Codex cli session manager
+
+## ✨ Features
+
+### Flexible Configuration
+- Multiple AI providers (OpenAI, Ollama, Gemini, openrouter, xAI, Custom)
 
 ## Build from source Prerequisites
 
