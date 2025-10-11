@@ -1,7 +1,6 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri_plugin_log::log::{info, error};
 use codex_app_server_protocol::{
     AddConversationListenerParams, AddConversationSubscriptionResponse, AuthMode, ClientInfo,
     ConversationSummary, InitializeParams, InitializeResponse, InputItem,
@@ -13,6 +12,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
+use tauri_plugin_log::log::{self, error, info};
 use tokio::sync::Mutex;
 use ts_rs::TS;
 use uuid::Uuid;
@@ -241,7 +241,12 @@ async fn get_conversation_history(
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
         .setup(|app| {
             #[cfg(debug_assertions)]
             export_ts_types();

@@ -1,5 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
-use tauri_plugin_log::log::{info, error};
+use tauri_plugin_log::log::{error, info};
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
