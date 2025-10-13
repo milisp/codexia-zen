@@ -27,7 +27,7 @@ export const useConversationStore = create<ConversationStore>()(
       },
     }),
     {
-      name: "conversation-storage",
+      name: "conversation",
       storage: createJSONStorage(() => localStorage),
     },
   ),

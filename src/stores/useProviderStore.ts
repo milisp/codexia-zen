@@ -92,7 +92,7 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
       },
     }),
     {
-      name: "codexia-provider-storage",
+      name: "provider",
       storage: createJSONStorage(() => localStorage),
     },
   ),

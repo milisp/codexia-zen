@@ -177,23 +177,19 @@ export function ProviderModels() {
           <div className="flex-1 flex flex-col">
             {/* Top: API Key */}
             <div className="p-4 space-y-3">
-              {selectedProviderId !== "ollama" && (
-                <>
-                  <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    API Key
-                  </Label>
-                  <div className="space-y-2">
-                    <Input
-                      type="password"
-                      placeholder="api key"
-                      value={currentApiKey}
-                      onChange={handleApiKeyChange}
-                      className="font-mono text-xs"
-                      disabled={!selectedProviderId}
-                    />
-                  </div>
-                </>
-              )}
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                API Key {selectedProviderId !== "ollama" && "option"}
+              </Label>
+              <div className="space-y-2">
+                <Input
+                  type="password"
+                  placeholder="api key"
+                  value={currentApiKey}
+                  onChange={handleApiKeyChange}
+                  className="font-mono text-xs"
+                  disabled={!selectedProviderId}
+                />
+              </div>
             </div>
 
             <Separator />

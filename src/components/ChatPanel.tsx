@@ -3,6 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { BotMessageSquare } from "lucide-react";
 import type { Message } from "@/types/Message";
 import { useRef, useEffect } from "react";
+import EventLog from "./EventLog";
 
 interface ChatPanelProps {
   activeConversationId: string | null;
@@ -34,7 +35,7 @@ export function ChatPanel({
         behavior: "smooth",
       });
     }
-  }, [activeMessages.length, activeMessages[activeMessages.length - 1]?.content]);
+  }, [activeMessages.length, activeMessages[activeMessages.length - 1]?.content, activeMessages[activeMessages.length - 1]?.events?.length]);
 
   return (
     <div className="flex h-full flex-col">
@@ -53,7 +54,7 @@ export function ChatPanel({
                       msg.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    {msg.role === "agent" ? (
+                    {msg.role === "assistant" ? (
                       <div className="bg-primary rounded-full p-2">
                         <BotMessageSquare className="text-primary-foreground h-5 w-5" />
                       </div>
@@ -67,7 +68,19 @@ export function ChatPanel({
                           : "bg-muted"
                       }`}
                     >
-                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      {msg.role === "assistant" ? (
+                        <div className="bg-muted rounded-lg p-3">
+                          <div className="font-medium">🤖 Agent</div>
+                          {msg.events && msg.events.length > 0 && (
+                            <EventLog events={msg.events} />
+                          )}
+                          {msg.content && msg.content.trim() !== '' && (
+                            <p className="text-sm whitespace-pre-wrap mt-2">{msg.content}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      )}
                     </div>
                   </div>
                 ))

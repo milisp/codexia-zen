@@ -606,7 +606,7 @@ dependencies = [
 [[package]]
 name = "codex-app-server-protocol"
 version = "0.0.0"
-source = "git+https://github.com/openai/codex.git?rev=43002366814cdab3c1e93cdb83e5b06ef72b4181#43002366814cdab3c1e93cdb83e5b06ef72b4181"
+source = "git+https://github.com/openai/codex.git?rev=26f7c46856060f440615645bdf2faf9e62c74e72#26f7c46856060f440615645bdf2faf9e62c74e72"
 dependencies = [
  "codex-protocol",
  "paste",
@@ -620,7 +620,7 @@ dependencies = [
 [[package]]
 name = "codex-protocol"
 version = "0.0.0"
-source = "git+https://github.com/openai/codex.git?rev=43002366814cdab3c1e93cdb83e5b06ef72b4181#43002366814cdab3c1e93cdb83e5b06ef72b4181"
+source = "git+https://github.com/openai/codex.git?rev=26f7c46856060f440615645bdf2faf9e62c74e72#26f7c46856060f440615645bdf2faf9e62c74e72"
 dependencies = [
  "base64 0.22.1",
  "icu_decimal",
@@ -648,6 +648,7 @@ dependencies = [
  "codex-app-server-protocol",
  "codex-protocol",
  "futures",
+ "log",
  "once_cell",
  "reqwest",
  "serde",
@@ -2370,7 +2371,7 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 [[package]]
 name = "mcp-types"
 version = "0.0.0"
-source = "git+https://github.com/openai/codex.git?rev=43002366814cdab3c1e93cdb83e5b06ef72b4181#43002366814cdab3c1e93cdb83e5b06ef72b4181"
+source = "git+https://github.com/openai/codex.git?rev=26f7c46856060f440615645bdf2faf9e62c74e72#26f7c46856060f440615645bdf2faf9e62c74e72"
 dependencies = [
  "serde",
  "serde_json",

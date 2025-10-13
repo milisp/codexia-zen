@@ -14,7 +14,8 @@ use codex_app_server_protocol::*;
 use codex_protocol::ConversationId;
 use codex_protocol::protocol::{ErrorEvent, EventMsg};
 
-const CODEX_APP_SERVER_COMMAND: &str = "codex";
+use crate::codex_discovery::discover_codex_command;
+
 const CODEX_APP_SERVER_ARGS: &[&str] = &["app-server"];
 
 #[derive(Clone)]
@@ -48,6 +49,7 @@ impl CodexClient {
     fn map_provider_to_env_key(provider: &str) -> &'static str {
         match provider {
             "openai" => "OPENAI_API_KEY",
+            "ollama" => "",
             "openrouter" => "OPENROUTER_API_KEY",
             "google" => "GEMINI_API_KEY",
             // Add other mappings as needed
@@ -73,7 +75,18 @@ impl CodexClient {
             );
         }
 
-        let mut child = match Command::new(CODEX_APP_SERVER_COMMAND)
+        let codex_command = match discover_codex_command() {
+            Some(path) => path,
+            None => {
+                error!("Failed to discover codex app-server command.");
+                let _ = event_tx.send(EventMsg::Error(ErrorEvent {
+                    message: "Failed to start codex app-server. No codex binary found.".to_string(),
+                }));
+                return;
+            }
+        };
+
+        let mut child = match Command::new(&codex_command)
             .args(CODEX_APP_SERVER_ARGS)
             .envs(envs)
             .stdin(std::process::Stdio::piped())
@@ -86,7 +99,7 @@ impl CodexClient {
                 error!("Failed to spawn codex app-server: {}", e);
                 // Emit an error event to the frontend
                 let _ = event_tx.send(EventMsg::Error(ErrorEvent {
-                    message: format!("Failed to start codex app-server. Make sure '{}' is in your PATH. Error: {}", CODEX_APP_SERVER_COMMAND, e),
+                    message: format!("Failed to start codex app-server. Error: {}", e),
                 }));
                 return;
             }

@@ -8,6 +8,7 @@ use tauri_plugin_log::log;
 use tokio::sync::Mutex;
 
 mod codex;
+mod codex_discovery;
 mod commands;
 mod state;
 

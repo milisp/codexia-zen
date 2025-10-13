@@ -13,7 +13,7 @@ export const useCodexStore = create<CodexStore>()(
       setCwd: (cwd) => set({ cwd }),
     }),
     {
-      name: "codex-storage",
+      name: "codex",
       storage: createJSONStorage(() => localStorage),
     },
   ),

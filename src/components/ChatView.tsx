@@ -60,28 +60,18 @@ export function ChatView() {
 
     const setupListeners = async () => {
       unlistenEvents = await listen<[string, EventMsg]>(
-        "codex_event",
-        ({ payload: [, event] }) => {
-          console.log(`Received codex_event:`, event);
-          if (!event || typeof event.type === "undefined") {
-            console.error("Received malformed codex_event payload:", event);
+        "codex-event",
+        (event) => {
+          const [, eventMsg] = event.payload;
+          console.log(`Received codex-event:`, eventMsg);
+          if (!eventMsg || typeof eventMsg.type === "undefined") {
+            console.error("Received malformed codex-event payload:", eventMsg);
             return;
           }
 
-          const msgType = event.type;
-          const convId = activeConversationId;
+          const convId = useConversationStore.getState().activeConversationId;
           if (!convId) return;
-          if (msgType === "agent_message_delta") {
-            // Ensure activeConversationId is not null before using it
-            if (activeConversationId) {
-              updateLastAgentMessage(activeConversationId, event.delta);
-            } else {
-              console.error(
-                "Received agent_message_delta with no active conversation:",
-                event,
-              );
-            }
-          }
+          updateLastAgentMessage(convId, eventMsg);
         },
       );
 
@@ -89,6 +79,8 @@ export function ChatView() {
         "app_server_error",
         ({ payload }) => {
           setError(`App Server Error: ${payload}`);
+          setIsInitializing(false);
+          setIsSending(false);
         },
       );
     };
@@ -99,7 +91,7 @@ export function ChatView() {
       if (unlistenEvents) unlistenEvents();
       if (unlistenError) unlistenError();
     };
-  }, [activeConversationId, updateLastAgentMessage, setError]);
+  }, [updateLastAgentMessage, setError, setIsInitializing, setIsSending]);
 
   const handleStartSession = async () => {
     if (sessionId) {
@@ -116,6 +108,7 @@ export function ChatView() {
       });
       setSessionActive(true);
       setSessionId(uuid);
+      setIsInitializing(false); // Set to false after successful initialization
       return uuid;
     } catch (error) {
       console.error("Failed to start session:", error);
@@ -206,6 +199,15 @@ export function ChatView() {
       timestamp: Date.now(),
     };
     addMessage(conversationIdToUse, userMessage);
+    // Add an initial empty agent message to hold events
+    addMessage(conversationIdToUse, {
+      id: Date.now().toString() + "-agent",
+      role: "assistant",
+      content: "",
+      timestamp: Date.now(),
+      events: [],
+    });
+
     const messageToSend = currentMessage;
     setCurrentMessage("");
 
@@ -224,8 +226,9 @@ export function ChatView() {
       const errorMessage: Message = {
         id: Date.now().toString() + "-error",
         content: `Error: ${(error as Error).message}`,
-        role: "agent",
+        role: "assistant",
         timestamp: Date.now(),
+        events: [],
       };
       if (activeConversationId) {
         addMessage(activeConversationId, errorMessage);
