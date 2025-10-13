@@ -1,7 +1,7 @@
 import { ChatCompose } from "./ChatCompose";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { BotMessageSquare } from "lucide-react";
-import type { Message } from "@/bindings/Message";
+import type { Message } from "@/types/Message";
 import { useRef, useEffect } from "react";
 
 interface ChatPanelProps {
@@ -12,6 +12,7 @@ interface ChatPanelProps {
   handleSendMessage: () => void;
   isSending: boolean;
   isInitializing: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 export function ChatPanel({
@@ -22,6 +23,7 @@ export function ChatPanel({
   handleSendMessage,
   isSending,
   isInitializing,
+  inputRef,
 }: ChatPanelProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -32,12 +34,12 @@ export function ChatPanel({
         behavior: "smooth",
       });
     }
-  }, [activeMessages.length, activeMessages[activeMessages.length - 1]?.text]);
+  }, [activeMessages.length, activeMessages[activeMessages.length - 1]?.content]);
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b p-2">
-        <h1 className="text-xl font-bold">Codexia Chat</h1>
+        <h1 className="text-xl font-bold">Chat</h1>
       </header>
       <main className="flex flex-1 flex-col p-4 gap-4">
         <div className="flex-1 mb-2 flex flex-col">
@@ -48,10 +50,10 @@ export function ChatPanel({
                   <div
                     key={String(msg.id) ?? `msg-${idx}`}
                     className={`mb-4 flex items-start gap-3 ${
-                      msg.sender === "user" ? "justify-end" : "justify-start"
+                      msg.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    {msg.sender === "agent" ? (
+                    {msg.role === "agent" ? (
                       <div className="bg-primary rounded-full p-2">
                         <BotMessageSquare className="text-primary-foreground h-5 w-5" />
                       </div>
@@ -60,10 +62,12 @@ export function ChatPanel({
                     )}
                     <div
                       className={`max-w-[80%] md:max-w-[60%] rounded-lg p-3 ${
-                        msg.sender === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted"
                       }`}
                     >
-                      <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                     </div>
                   </div>
                 ))
@@ -82,6 +86,7 @@ export function ChatPanel({
             handleSendMessage={handleSendMessage}
             isSending={isSending}
             isInitializing={isInitializing}
+            inputRef={inputRef}
           />
         </div>
       </main>

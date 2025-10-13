@@ -1,17 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 import { useChatStore } from "@/stores/useChatStore";
 import { useProviderStore } from "@/stores/useProviderStore";
 import { useSessionStore } from "@/stores/useSessionStore";
+import { useCodexStore } from "@/stores/useCodexStore";
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { EventMsg } from "@/bindings/EventMsg";
-import { Message } from "@/bindings/Message";
+import { Message } from "@/types/Message";
 import { InputItem } from "@/bindings/InputItem";
 import { NewConversationResponse } from "@/bindings/NewConversationResponse";
 import { ConversationSummary } from "@/bindings/ConversationSummary";
@@ -22,6 +23,7 @@ import { getNewConversationParams } from "@/config/ConversationParams";
 import { useConversationStore } from "@/stores/useConversationStore";
 
 export function ChatView() {
+  const chatInputRef = useRef<HTMLInputElement>(null);
   const {
     messages,
     currentMessage,
@@ -29,11 +31,8 @@ export function ChatView() {
     updateLastAgentMessage,
     setCurrentMessage,
   } = useChatStore();
-  const {
-    activeConversationId,
-    setActiveConversationId,
-    addConversation,
-  } = useConversationStore();
+  const { activeConversationId, setActiveConversationId, addConversation } =
+    useConversationStore();
   const {
     sessionId,
     isInitializing,
@@ -43,32 +42,55 @@ export function ChatView() {
     setError,
   } = useSessionStore();
   const { providers, selectedProviderId } = useProviderStore();
-  const provider = providers.find(p => p.id === selectedProviderId);
-  const apiKey = provider?.apiKey ?? '';
+  const provider = providers.find((p) => p.id === selectedProviderId);
+  const apiKey = provider?.apiKey ?? "";
+  const selectedModel = useProviderStore().selectedModel;
+  const { cwd } = useCodexStore();
   const [isSending, setIsSending] = useState(false);
 
   const activeMessages = messages[activeConversationId || ""] || [];
+
+  const focusChatInput = () => {
+    chatInputRef.current?.focus();
+  };
 
   useEffect(() => {
     let unlistenEvents: (() => void) | undefined;
     let unlistenError: (() => void) | undefined;
 
     const setupListeners = async () => {
-      unlistenEvents = await listen<[string, EventMsg]>("codex_event", ({ payload: [, event] }) => {
-        const msgType = event.type;
-        if ("agent_message_delta" !== msgType) {
-          console.log(`Received codex_event [${activeConversationId}]:`, event);
-        }
-        const convId = activeConversationId;
-        if (!convId) return;
-        if (msgType === "agent_message_delta") {
-          updateLastAgentMessage(convId, event.delta);
-        }
-      });
+      unlistenEvents = await listen<[string, EventMsg]>(
+        "codex_event",
+        ({ payload: [, event] }) => {
+          console.log(`Received codex_event:`, event);
+          if (!event || typeof event.type === "undefined") {
+            console.error("Received malformed codex_event payload:", event);
+            return;
+          }
 
-      unlistenError = await listen<string>("app_server_error", ({ payload }) => {
-        setError(`App Server Error: ${payload}`);
-      });
+          const msgType = event.type;
+          const convId = activeConversationId;
+          if (!convId) return;
+          if (msgType === "agent_message_delta") {
+            // Ensure activeConversationId is not null before using it
+            if (activeConversationId) {
+              updateLastAgentMessage(activeConversationId, event.delta);
+            } else {
+              console.error(
+                "Received agent_message_delta with no active conversation:",
+                event,
+              );
+            }
+          }
+        },
+      );
+
+      unlistenError = await listen<string>(
+        "app_server_error",
+        ({ payload }) => {
+          setError(`App Server Error: ${payload}`);
+        },
+      );
     };
 
     setupListeners();
@@ -85,7 +107,7 @@ export function ChatView() {
     }
     setIsInitializing(true);
     setError(null);
-    const uuid = v4()
+    const uuid = v4();
     try {
       await invoke("start_chat_session", {
         sessionId: uuid,
@@ -100,38 +122,6 @@ export function ChatView() {
       setError(`Failed to start session: ${error}`);
       setIsInitializing(false);
       return null;
-    }
-  };
-
-  const handleNewConversation = async () => {
-    const currentSessionId = await handleStartSession()
-    if (!currentSessionId) {
-      toast.error("Failed to start session for new conversation.");
-      return;
-    }
-    try {
-      const params = getNewConversationParams();
-      const response: NewConversationResponse = await invoke<NewConversationResponse>(
-        "new_conversation",
-        { sessionId: currentSessionId, params },)
-      console.log("new_conversation response:", response);
-      const newConversationId = response?.conversationId;
-      if (!newConversationId) {
-        setError("Failed to create new conversation: server returned no id.");
-        toast.error("Failed to create conversation");
-        return;
-      }
-      const newConversation: ConversationSummary = {
-        conversationId: newConversationId,
-        preview: `Chat - ${new Date().toLocaleTimeString()}`,
-        path: response.rolloutPath,
-        timestamp: new Date().toLocaleTimeString(),
-      };
-      addConversation(newConversation);
-      setActiveConversationId(newConversationId);
-    } catch (error) {
-      console.error("new_conversation error:", error);
-      setError(`Failed to create new conversation: ${error}`);
     }
   };
 
@@ -156,10 +146,11 @@ export function ChatView() {
 
     if (!conversationIdToUse) {
       try {
-        const params = getNewConversationParams();
+        const params = getNewConversationParams(provider, selectedModel, cwd);
         const response = await invoke<NewConversationResponse>(
           "new_conversation",
-          { sessionId: currentSessionId, params })
+          { sessionId: currentSessionId, params },
+        );
         console.log("new_conversation response (from send flow):", response);
         const newConversationId = response?.conversationId;
         if (!newConversationId) {
@@ -170,12 +161,36 @@ export function ChatView() {
         const newConversation: ConversationSummary = {
           conversationId: newConversationId,
           preview: `Chat - ${new Date().toLocaleTimeString()}`,
-          path: "",
+          path: response.rolloutPath,
           timestamp: new Date().toLocaleTimeString(),
         };
         addConversation(newConversation);
         setActiveConversationId(newConversationId);
-        conversationIdToUse = newConversationId;
+        conversationIdToUse = newConversationId; // Ensure local variable is updated
+
+        // Wait for activeConversationId to be updated in the store
+        let attempts = 0;
+        const maxAttempts = 10; // Try for a short period
+        const delay = 50; // Check every 50ms
+        while (
+          useConversationStore.getState().activeConversationId !==
+            newConversationId &&
+          attempts < maxAttempts
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          attempts++;
+        }
+
+        if (
+          useConversationStore.getState().activeConversationId !==
+          newConversationId
+        ) {
+          toast.error("Failed to set active conversation ID in time.");
+          setIsSending(false);
+          return;
+        }
+        // Introduce a small delay to allow backend to register the new conversation
+        // await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error) {
         console.error("Failed to create conversation before send:", error);
         setError(`Failed to create new conversation: ${error}`);
@@ -186,9 +201,9 @@ export function ChatView() {
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: currentMessage,
-      sender: "user",
-      timestamp: BigInt(Date.now()),
+      content: currentMessage,
+      role: "user",
+      timestamp: Date.now(),
     };
     addMessage(conversationIdToUse, userMessage);
     const messageToSend = currentMessage;
@@ -208,9 +223,9 @@ export function ChatView() {
       // Optional: Add error message to chat
       const errorMessage: Message = {
         id: Date.now().toString() + "-error",
-        text: `Error: ${(error as Error).message}`,
-        sender: "agent",
-        timestamp: BigInt(Date.now()),
+        content: `Error: ${(error as Error).message}`,
+        role: "agent",
+        timestamp: Date.now(),
       };
       if (activeConversationId) {
         addMessage(activeConversationId, errorMessage);
@@ -219,14 +234,10 @@ export function ChatView() {
     }
   };
 
-
-
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full w-screen">
-      <ResizablePanel>
-        <ConversationList
-          handleNewConversation={handleNewConversation}
-        />
+      <ResizablePanel defaultSize={20}>
+        <ConversationList onClearConversation={focusChatInput} />
       </ResizablePanel>
       <ResizableHandle withHandle />
       <ResizablePanel>
@@ -238,8 +249,9 @@ export function ChatView() {
           handleSendMessage={handleSendMessage}
           isSending={isSending}
           isInitializing={isInitializing}
+          inputRef={chatInputRef}
         />
       </ResizablePanel>
-      </ResizablePanelGroup>
+    </ResizablePanelGroup>
   );
 }

@@ -1,4 +1,3 @@
-
 import { create } from "zustand";
 
 type SessionState = {
@@ -15,15 +14,17 @@ type SessionActions = {
   setError: (error: string | null) => void;
 };
 
-export const useSessionStore = create<SessionState & SessionActions>()((set) => ({
-  sessionId: null,
-  isSessionActive: false,
-  isInitializing: false,
-  error: null,
+export const useSessionStore = create<SessionState & SessionActions>()(
+  (set) => ({
+    sessionId: null,
+    isSessionActive: false,
+    isInitializing: false,
+    error: null,
 
-  setSessionId: (id) => set({ sessionId: id }),
-  setSessionActive: (isActive) =>
-    set({ isSessionActive: isActive, isInitializing: false }),
-  setIsInitializing: (isInitializing) => set({ isInitializing }),
-  setError: (error) => set({ error }),
-}));
+    setSessionId: (id) => set({ sessionId: id }),
+    setSessionActive: (isActive) =>
+      set({ isSessionActive: isActive, isInitializing: false }),
+    setIsInitializing: (isInitializing) => set({ isInitializing }),
+    setError: (error) => set({ error }),
+  }),
+);

@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { ConversationSummary } from '@/bindings/ConversationSummary';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { ConversationSummary } from "@/bindings/ConversationSummary";
 
 interface ConversationStore {
   conversations: ConversationSummary[];
@@ -27,8 +27,8 @@ export const useConversationStore = create<ConversationStore>()(
       },
     }),
     {
-      name: 'conversation-storage',
+      name: "conversation-storage",
       storage: createJSONStorage(() => localStorage),
-    }
-  )
+    },
+  ),
 );

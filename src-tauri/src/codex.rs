@@ -18,13 +18,13 @@ const CODEX_APP_SERVER_COMMAND: &str = "codex";
 const CODEX_APP_SERVER_ARGS: &[&str] = &["app-server"];
 
 #[derive(Clone)]
-pub struct CodexAppServerClient {
+pub struct CodexClient {
     stdin_tx: mpsc::Sender<String>,
     event_tx: broadcast::Sender<EventMsg>,
     request_map: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
 }
 
-impl CodexAppServerClient {
+impl CodexClient {
     pub fn new(api_key: String, provider: String) -> Self {
         let (stdin_tx, stdin_rx) = mpsc::channel(100);
         let (event_tx, _) = broadcast::channel(100);
@@ -51,7 +51,10 @@ impl CodexAppServerClient {
             "openrouter" => "OPENROUTER_API_KEY",
             "google" => "GEMINI_API_KEY",
             // Add other mappings as needed
-            _ => "GENERIC_API_KEY", // Default or handle error
+            _ => {
+                error!("Unknown provider '{}', defaulting to GENERIC_API_KEY", provider);
+                "GENERIC_API_KEY"
+            },
         }
     }
 
@@ -112,19 +115,14 @@ impl CodexAppServerClient {
                                 };
 
                                 if !is_response {
-                                    info!("Received event JSON from codex: {:?}", json_value);
-                                    if let Some(params) = json_value.get("params") {
-                                        if let Some(msg) = params.get("msg") {
-                                            if let Ok(event_msg) = serde_json::from_value::<EventMsg>(msg.clone()) {
-                                                let _ = event_tx.send(event_msg);
-                                            } else {
-                                                error!("Failed to parse event from msg field: {}", line);
-                                            }
+                                    if let Some(msg) = json_value.pointer("/params/msg") {
+                                        if let Ok(event_msg) = serde_json::from_value::<EventMsg>(msg.clone()) {
+                                            let _ = event_tx.send(event_msg);
                                         } else {
-                                            error!("Missing 'msg' field in params: {}", line);
+                                            error!("Failed to parse event from msg field: {}", line);
                                         }
                                     } else {
-                                        error!("Missing 'params' field in event: {}", line);
+                                        info!("Received non-event message: {:?}", json_value);
                                     }
                                 }
                             } else {
@@ -187,7 +185,7 @@ impl CodexAppServerClient {
             .recv()
             .await
             .ok_or_else(|| anyhow::anyhow!("Request channel closed before response"))?;
-        error!("Raw response from codex app-server: {:?}", response);
+        info!("Raw response from codex app-server: {:?}", response);
 
         if let Some(error) = response.get("error") {
             return Err(anyhow::anyhow!("App server error: {:?}", error));
@@ -237,17 +235,6 @@ impl CodexAppServerClient {
             .await
     }
 
-    pub async fn get_conversation_history(
-        &self,
-        conversation_id: ConversationId,
-    ) -> anyhow::Result<Vec<EventMsg>> {
-        self.send_request(
-            "getConversationHistory",
-            serde_json::json!([conversation_id.to_string()]),
-        )
-        .await
-    }
-
     pub async fn send_user_message(
         &self,
         conversation_id: ConversationId,
@@ -258,11 +245,6 @@ impl CodexAppServerClient {
             items,
         };
         self.send_request("sendUserMessage", serde_json::to_value(params)?)
-            .await
-    }
-
-    pub async fn list_conversations(&self) -> anyhow::Result<ListConversationsResponse> {
-        self.send_request("listConversations", serde_json::json!({}))
             .await
     }
 }

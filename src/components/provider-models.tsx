@@ -22,7 +22,10 @@ function AddProviderForm({ onAdd }: { onAdd: () => void }) {
     if (!name || !models) return;
     addProvider({
       name,
-      models: models.split(",").map((m) => m.trim()).filter(Boolean),
+      models: models
+        .split(",")
+        .map((m) => m.trim())
+        .filter(Boolean),
     });
     onAdd();
   };
@@ -31,18 +34,34 @@ function AddProviderForm({ onAdd }: { onAdd: () => void }) {
     <form onSubmit={handleSubmit} className="p-4 space-y-4">
       <div className="space-y-2">
         <Label>Provider Name</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., My Custom AI" />
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g., My Custom AI"
+        />
       </div>
       <div className="space-y-2">
         <Label>Models (comma-separated)</Label>
-        <Input value={models} onChange={(e) => setModels(e.target.value)} placeholder="model-1, model-2" />
+        <Input
+          value={models}
+          onChange={(e) => setModels(e.target.value)}
+          placeholder="model-1, model-2"
+        />
       </div>
-      <Button type="submit" size="sm" className="w-full">Add Provider</Button>
+      <Button type="submit" size="sm" className="w-full">
+        Add Provider
+      </Button>
     </form>
   );
 }
 
-function AddModelForm({ providerId, onAdd }: { providerId: string; onAdd: () => void }) {
+function AddModelForm({
+  providerId,
+  onAdd,
+}: {
+  providerId: string;
+  onAdd: () => void;
+}) {
   const [modelName, setModelName] = useState("");
   const addModel = useProviderStore((s) => s.addModel);
 
@@ -58,9 +77,15 @@ function AddModelForm({ providerId, onAdd }: { providerId: string; onAdd: () => 
     <form onSubmit={handleSubmit} className="p-4 space-y-4">
       <div className="space-y-2">
         <Label>Model Name</Label>
-        <Input value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="e.g., new-model-v1" />
+        <Input
+          value={modelName}
+          onChange={(e) => setModelName(e.target.value)}
+          placeholder="e.g., new-model-v1"
+        />
       </div>
-      <Button type="submit" size="sm" className="w-full">Add Model</Button>
+      <Button type="submit" size="sm" className="w-full">
+        Add Model
+      </Button>
     </form>
   );
 }
@@ -80,22 +105,24 @@ export function ProviderModels() {
 
   const selectedProvider = providers.find((p) => p.id === selectedProviderId);
 
-  const currentApiKey = selectedProvider?.apiKey ?? '';
+  const currentApiKey = selectedProvider?.apiKey ?? "";
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log(selectedProviderId)
+    console.log(selectedProviderId);
     if (selectedProviderId) {
       setApiKey(selectedProviderId, e.target.value);
     }
   };
 
   return (
-    <Popover onOpenChange={() => {
-      setShowAddForm(false);
-      setShowAddModelForm(false);
-    }}>
+    <Popover
+      onOpenChange={() => {
+        setShowAddForm(false);
+        setShowAddModelForm(false);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
-          <span className="font-medium">{selectedModel ?? 'Select Model'}</span>
+          <span className="font-medium">{selectedModel ?? "Select Model"}</span>
           <ChevronDown className="h-4 w-4 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -111,7 +138,12 @@ export function ProviderModels() {
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Providers
               </Label>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAddForm(!showAddForm)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setShowAddForm(!showAddForm)}
+              >
                 <PlusCircle className="h-4 w-4" />
               </Button>
             </div>
@@ -123,7 +155,9 @@ export function ProviderModels() {
                   {providers.map((p) => (
                     <Button
                       key={p.id}
-                      variant={p.id === selectedProviderId ? "secondary" : "ghost"}
+                      variant={
+                        p.id === selectedProviderId ? "secondary" : "ghost"
+                      }
                       size="sm"
                       className="w-full justify-start relative"
                       onClick={() => {
@@ -171,13 +205,21 @@ export function ProviderModels() {
                   Models
                 </Label>
                 {selectedProviderId && (
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAddModelForm(!showAddModelForm)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setShowAddModelForm(!showAddModelForm)}
+                  >
                     <PlusCircle className="h-4 w-4" />
                   </Button>
                 )}
               </div>
               {selectedProviderId && showAddModelForm ? (
-                <AddModelForm providerId={selectedProviderId} onAdd={() => setShowAddModelForm(false)} />
+                <AddModelForm
+                  providerId={selectedProviderId}
+                  onAdd={() => setShowAddModelForm(false)}
+                />
               ) : (
                 selectedProvider && (
                   <ScrollArea className="h-64 rounded-md border">

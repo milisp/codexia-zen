@@ -1,7 +1,9 @@
+import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ProviderModels } from "./provider-models";
 import { Send } from "lucide-react";
+import { Sandbox } from "./Sandbox";
 
 interface ChatComposeProps {
   currentMessage: string;
@@ -9,6 +11,7 @@ interface ChatComposeProps {
   handleSendMessage: () => void;
   isSending: boolean;
   isInitializing: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 export function ChatCompose({
@@ -17,12 +20,13 @@ export function ChatCompose({
   handleSendMessage,
   isSending,
   isInitializing,
+  inputRef,
 }: ChatComposeProps) {
-
   return (
     <div className="gap-2">
       <div className="flex items-center space-x-2">
         <Input
+          ref={inputRef}
           placeholder="Type your message..."
           value={currentMessage}
           onChange={(e) => setCurrentMessage(e.target.value)}
@@ -34,12 +38,16 @@ export function ChatCompose({
           }}
           disabled={isSending || isInitializing}
         />
-        <Button onClick={handleSendMessage} disabled={isSending || isInitializing}>
+        <Button
+          onClick={handleSendMessage}
+          disabled={isSending || isInitializing}
+        >
           {isSending ? "Sending..." : <Send />}
         </Button>
       </div>
       <div>
-      <ProviderModels />
+        <Sandbox />
+        <ProviderModels />
       </div>
     </div>
   );
