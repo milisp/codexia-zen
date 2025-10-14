@@ -2,7 +2,7 @@ use codex_app_server_protocol::{
     AddConversationListenerParams, AddConversationSubscriptionResponse, AuthMode, ClientInfo,
     ConversationSummary, InitializeParams, InitializeResponse, InputItem,
     ListConversationsResponse, NewConversationParams, NewConversationResponse,
-    SendUserMessageParams,
+    SendUserMessageParams, ExecCommandApprovalParams,
 };
 use codex_protocol::protocol::EventMsg;
 use std::path::Path;
@@ -25,6 +25,7 @@ pub fn export_ts_types() {
     ClientInfo::export_all_to(&out_dir).unwrap();
     InitializeResponse::export_all_to(&out_dir).unwrap();
     SendUserMessageParams::export_all_to(&out_dir).unwrap();
+    ExecCommandApprovalParams::export_all_to(&out_dir).unwrap();
     ListConversationsResponse::export_all_to(&out_dir).unwrap();
     AddConversationListenerParams::export_all_to(&out_dir).unwrap();
     AddConversationSubscriptionResponse::export_all_to(&out_dir).unwrap();

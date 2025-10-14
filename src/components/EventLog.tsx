@@ -1,47 +1,47 @@
 import { invoke } from "@tauri-apps/api/core";
-import { EventMsg } from '@/bindings/EventMsg';
 import React, { JSX } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Button } from './ui/button';
 import { useSessionStore } from "@/stores/useSessionStore";
+import { EventWithId } from "@/types/Message";
 
 interface EventLogProps {
-  events: EventMsg[];
+  events: EventWithId[];
 }
 
 const EventLog: React.FC<EventLogProps> = ({ events }) => {
   const commandMap = new Map<string, string>();
   const agentMessageDeltas: string[] = [];
   const { sessionId } = useSessionStore();
-  
 
-  const handleApproval = async (call_id: string, approved: boolean, command: string[], cwd: string) => {
-    console.log("exec_approval_request sessionId", sessionId, call_id)
+  const handleApproval = async (request_id: string, approved: boolean) => {
+    console.log("exec_approval_request sessionId", sessionId, request_id, approved)
     try {
-      await invoke("exec_approval_request", { sessionId: sessionId, callId: call_id, approved, command, cwd });
+      await invoke("exec_approval_request", { sessionId: sessionId, requestId: request_id, decision: approved });
     } catch (error) {
       console.error(`Failed to ${approved ? 'approve' : 'deny'} request:`, error);
     }
   };
 
   events.forEach(event => {
-    if (event.type === 'exec_command_begin' && 'call_id' in event && 'command' in event) {
-      commandMap.set(event.call_id, event.command.join(' '));
+    if (event.msg.type === 'exec_command_begin' && 'call_id' in event.msg && 'command' in event.msg) {
+      commandMap.set(event.msg.call_id, event.msg.command.join(' '));
     }
-    if (event.type === 'agent_message_delta' && 'delta' in event) {
-      agentMessageDeltas.push(event.delta);
+    if (event.msg.type === 'agent_message_delta' && 'delta' in event.msg) {
+      agentMessageDeltas.push(event.msg.delta);
     }
   });
 
   const accumulatedMessage = agentMessageDeltas.join('');
 
-  const renderEvent = (event: EventMsg, idx: number): JSX.Element | null => {
-    switch (event.type) {
+  const renderEvent = (event: EventWithId, idx: number): JSX.Element | null => {
+    switch (event.msg.type) {
       case 'task_started':
         return <div className="text-sm text-gray-500">🚀 Task started</div>;
       
-      case 'agent_message_delta':
-        if (idx === events.findLastIndex(e => e.type === 'agent_message_delta')) {
+      case 'agent_message_delta': {
+        const lastAgentMessageDeltaIndex = events.findLastIndex(e => e.msg.type === 'agent_message_delta');
+        if (idx === lastAgentMessageDeltaIndex) {
           return accumulatedMessage ? (
             <div className="text-sm my-1">🤖 
               <pre className="overflow-auto bg-gray-300 p-2 text-xs my-0">
@@ -51,18 +51,12 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
           ) : null;
         }
         return null;
-
-      case 'agent_message':
-        return 'message' in event ? <div className="text-sm my-1">🤖 
-        <pre className="overflow-auto bg-gray-300 p-2 text-xs my-0">
-        <code>{event.message}</code>
-      </pre></div> 
-        : null;
+      }
 
       case 'exec_command_end': {
-        const callId = 'call_id' in event ? event.call_id : '';
+        const callId = 'call_id' in event.msg ? event.msg.call_id : '';
         const command = commandMap.get(callId) || '';
-        const output = 'aggregated_output' in event ? event.aggregated_output : '';
+        const output = 'aggregated_output' in event.msg ? event.msg.aggregated_output : '';
 
         return (
           <Accordion type="single" collapsible className="my-0">
@@ -81,26 +75,28 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
       }
 
       case 'exec_approval_request':
-        console.log(event)
-        const callId = 'call_id' in event ? event.call_id : '';
+        console.log(event.msg)
         return <div>
-          <div>🔄 {event.command.join(' ')}</div>
-          <div className='flex gap-2'>
-            <Button onClick={() => handleApproval(callId, true, event.command, event.cwd)}>Approval</Button>
-            <Button onClick={() => handleApproval(callId, false, event.command, event.cwd)}>Deny</Button>
+          <div>🔄 {event.msg.command.join(' ')}</div>
+            <div className="space-x-2 mt-1">
+            <Button size="sm" onClick={() => handleApproval(event.id, true)}>Approval</Button>
+            <Button size="sm" variant="destructive" onClick={() => handleApproval(event.id, false)}>
+                Deny</Button>
           </div>
         </div>
       
       case 'task_complete':
-        return <div className="text-sm text-gray-500 mt-2">✅ Task complete</div>;
-
+      case 'agent_message':
       case 'exec_command_begin':
       case 'exec_command_output_delta':
       case 'token_count':
         return null;
 
+      case 'stream_error':
+        return <div className="text-xs text-red-400">{event.msg.message}</div>;
+
       default:
-        return <div className="text-xs text-gray-400">Unhandled event: {event.type}</div>;
+        return <div className="text-xs text-gray-400">Unhandled event: {event.msg.type}</div>;
     }
   };
 
@@ -108,11 +104,7 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
     <div className="space-y-2">
       {events.map((event, idx) => (
         <div
-          key={
-            ('call_id' in event && event.call_id)
-              ? `${event.call_id}-${idx}`
-              : `${event.type}-${idx}`
-          }
+          key={event.id + (('call_id' in event.msg && event.msg.call_id) ? `-${event.msg.call_id}` : `-${idx}`)}
         >
           {renderEvent(event, idx)}
         </div>

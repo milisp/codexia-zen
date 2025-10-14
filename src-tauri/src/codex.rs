@@ -9,28 +9,27 @@ use tokio::{
     sync::{Mutex, broadcast, mpsc},
 };
 use uuid::Uuid;
+use std::collections::VecDeque;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
 use codex_app_server_protocol::*;
+use codex_app_server_protocol::{
+    AddConversationListenerParams, AddConversationSubscriptionResponse, ClientInfo,
+    InitializeParams, InitializeResponse, InputItem, NewConversationParams,
+    NewConversationResponse, SendUserMessageParams, ServerRequest,
+};
 use codex_protocol::ConversationId;
-use codex_protocol::protocol::{ErrorEvent, EventMsg};
+use codex_protocol::protocol::{ErrorEvent, Event, EventMsg};
 
 use crate::codex_discovery::discover_codex_command;
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExecApprovalRequestParams {
-    pub call_id: String,
-    pub approved: bool,
-    pub command: Vec<String>,
-    pub cwd: String,
-}
 
 const CODEX_APP_SERVER_ARGS: &[&str] = &["app-server"];
 
 #[derive(Clone)]
 pub struct CodexClient {
     stdin_tx: mpsc::Sender<String>,
-    event_tx: broadcast::Sender<EventMsg>,
+    event_tx: broadcast::Sender<Event>,
     request_map: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
 }
 
@@ -74,7 +73,7 @@ impl CodexClient {
 
     async fn run_app_server_process(
         mut stdin_rx: mpsc::Receiver<String>,
-        event_tx: broadcast::Sender<EventMsg>,
+        event_tx: broadcast::Sender<Event>,
         request_map: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
         api_key: String,
         provider: String,
@@ -91,9 +90,13 @@ impl CodexClient {
             Some(path) => path,
             None => {
                 error!("Failed to discover codex app-server command.");
-                let _ = event_tx.send(EventMsg::Error(ErrorEvent {
-                    message: "Failed to start codex app-server. No codex binary found.".to_string(),
-                }));
+                let _ = event_tx.send(Event {
+                    id: Uuid::new_v4().to_string(), // Generate a new ID for the error event
+                    msg: EventMsg::Error(ErrorEvent {
+                        message: "Failed to start codex app-server. No codex binary found."
+                            .to_string(),
+                    }),
+                });
                 return;
             }
         };
@@ -110,9 +113,12 @@ impl CodexClient {
             Err(e) => {
                 error!("Failed to spawn codex app-server: {}", e);
                 // Emit an error event to the frontend
-                let _ = event_tx.send(EventMsg::Error(ErrorEvent {
-                    message: format!("Failed to start codex app-server. Error: {}", e),
-                }));
+                let _ = event_tx.send(Event {
+                    id: Uuid::new_v4().to_string(), // Generate a new ID for the error event
+                    msg: EventMsg::Error(ErrorEvent {
+                        message: format!("Failed to start codex app-server. Error: {}", e),
+                    }),
+                });
                 return;
             }
         };
@@ -120,6 +126,8 @@ impl CodexClient {
         let mut stdin = child.stdin.take().unwrap();
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut lines = stdout.lines();
+
+        let mut event_deduplicator: VecDeque<u64> = VecDeque::with_capacity(1000);
 
         loop {
             tokio::select! {
@@ -140,14 +148,41 @@ impl CodexClient {
                                 };
 
                                 if !is_response {
-                                    if let Some(msg) = json_value.pointer("/params/msg") {
-                                        if let Ok(event_msg) = serde_json::from_value::<EventMsg>(msg.clone()) {
-                                            let _ = event_tx.send(event_msg);
+                                    if let Some(method) = json_value.get("method").and_then(|v| v.as_str()) {
+                                        if method.starts_with("codex/event/") {
+                                            if let Some(msg) = json_value.pointer("/params/msg") {
+                                                if let Ok(event_msg) = serde_json::from_value::<EventMsg>(msg.clone()) {
+                                                    let mut hasher = DefaultHasher::new();
+                                                    serde_json::to_string(&event_msg).unwrap_or_default().hash(&mut hasher);
+                                                    let event_hash = hasher.finish();
+
+                                                    if !event_deduplicator.contains(&event_hash) {
+                                                        let event_id = Uuid::new_v4().to_string(); // Generate a new ID for notifications
+                                                        let _ = event_tx.send(Event { id: event_id, msg: event_msg });
+
+                                                        event_deduplicator.push_back(event_hash);
+                                                        if event_deduplicator.len() > 20 { // Keep buffer size limited
+                                                            event_deduplicator.pop_front();
+                                                        }
+                                                    } else {
+                                                        info!("Skipping duplicate event: {:?}", event_msg);
+                                                    }
+                                                } else {
+                                                    error!("Failed to parse event from msg field: {}", line);
+                                                }
+                                            } else {
+                                                error!("Received codex-event without msg field: {}", line);
+                                            }
+                                        } else if let Ok(server_request) = serde_json::from_value::<ServerRequest>(json_value.clone()) {
+                                            // ServerRequests are handled as direct requests for interaction,
+                                            // not as events to be emitted to the frontend for display in the event log.
+                                            // The frontend will handle these requests directly to trigger approval UI.
+                                            info!("Received ServerRequest: {:?}", server_request);
                                         } else {
-                                            error!("Failed to parse event from msg field: {}", line);
+                                            info!("Received non-event or non-request message: {:?}", json_value);
                                         }
                                     } else {
-                                        info!("Received non-event message: {:?}", json_value);
+                                        info!("Received non-event or non-request message without method field: {:?}", json_value);
                                     }
                                 }
                             } else {
@@ -225,7 +260,7 @@ impl CodexClient {
             .map_err(|e| anyhow::anyhow!("Failed to parse app server response result: {}", e))
     }
 
-    pub fn subscribe_to_events(&self) -> broadcast::Receiver<EventMsg> {
+    pub fn subscribe_to_events(&self) -> broadcast::Receiver<Event> {
         self.event_tx.subscribe()
     }
 
@@ -273,15 +308,18 @@ impl CodexClient {
             .await
     }
 
-    pub async fn exec_approval_request(
+    pub async fn send_response_to_server_request<R: Serialize>(
         &self,
-        call_id: String,
-        approved: bool,
-        command: Vec<String>,
-        cwd: String,
-    ) -> anyhow::Result<serde_json::Value> {
-        let params = ExecApprovalRequestParams { call_id, approved, command, cwd };
-        self.send_request("ExecApprovalRequest", serde_json::to_value(params)?)
-            .await
+        request_id: String,
+        result: R,
+    ) -> anyhow::Result<()> {
+        let response = serde_json::json!({
+            "id": request_id,
+            "result": result,
+        })
+        .to_string();
+
+        self.stdin_tx.send(response).await?;
+        Ok(())
     }
 }

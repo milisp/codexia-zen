@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import { Message } from "@/types/Message";
 import { ConversationSummary } from "@/bindings/ConversationSummary";
 import { EventMsg } from "@/bindings/EventMsg";
+import { Message } from "@/types";
+import { EventWithId } from "@/types/Message";
 
 type ChatState = {
   // Conversations
@@ -16,7 +17,7 @@ type ChatActions = {
   setConversations: (conversations: ConversationSummary[]) => void;
   setActiveConversationId: (conversationId: string | null) => void;
   addMessage: (conversationId: string, message: Message) => void;
-  updateLastAgentMessage: (conversationId: string, event: EventMsg) => void;
+  updateLastAgentMessage: (conversationId: string, event: EventWithId) => void;
   clearMessages: (conversationId: string) => void;
   setCurrentMessage: (message: string) => void;
 };
@@ -43,24 +44,30 @@ export const useChatStore = create<ChatState & ChatActions>()((set, get) => ({
     }));
   },
 
-  updateLastAgentMessage: (conversationId, event) => {
+  updateLastAgentMessage: (conversationId: string, event: { id: string, msg: EventMsg }) => {
     const messages = get().messages[conversationId] || [];
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === "assistant") {
         let newContent = lastMessage.content || "";
-        if (event.type === "agent_message_delta") {
-          newContent += event.delta;
-        } else if (event.type === "agent_message") {
-          newContent = event.message;
-        } else if (event.type === "task_complete" && event.last_agent_message) {
-          newContent = event.last_agent_message;
+        if (event.msg.type === "agent_message_delta") {
+          newContent += event.msg.delta;
+        } else if (event.msg.type === "agent_message") {
+          newContent = event.msg.message;
+        } else if (event.msg.type === "task_complete" && event.msg.last_agent_message) {
+          newContent = event.msg.last_agent_message;
         }
 
         const updatedMessage = {
           ...lastMessage,
           content: newContent,
-          events: [...(lastMessage.events || []), event],
+          events: (() => {
+            const existingEvents = lastMessage.events || [];
+            const isDuplicate = existingEvents.some(existingEvent =>
+              JSON.stringify(existingEvent.msg) === JSON.stringify(event.msg)
+            );
+            return isDuplicate ? existingEvents : [...existingEvents, event];
+          })(),
         };
         const newMessages = [...messages.slice(0, -1), updatedMessage];
         set((state) => ({
@@ -74,16 +81,16 @@ export const useChatStore = create<ChatState & ChatActions>()((set, get) => ({
     }
     // If no agent message to update, add a new one with the event
     let initialContent = "";
-    if (event.type === "agent_message_delta") {
-      initialContent = event.delta;
-    } else if (event.type === "agent_message") {
-      initialContent = event.message;
-    } else if (event.type === "task_complete" && event.last_agent_message) {
-      initialContent = event.last_agent_message;
+    if (event.msg.type === "agent_message_delta") {
+      initialContent = event.msg.delta;
+    } else if (event.msg.type === "agent_message") {
+      initialContent = event.msg.message;
+    } else if (event.msg.type === "task_complete" && event.msg.last_agent_message) {
+      initialContent = event.msg.last_agent_message;
     }
 
     get().addMessage(conversationId, {
-      id: Date.now().toString() + "-agent-event",
+      id: event.id,
       role: "assistant",
       content: initialContent,
       timestamp: Date.now(),

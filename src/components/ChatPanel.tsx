@@ -1,8 +1,8 @@
 import { ChatCompose } from "./ChatCompose";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { Message } from "@/types/Message";
 import { useRef, useEffect } from "react";
 import EventLog from "./EventLog";
+import { Message } from "@/types/Message";
 
 interface ChatPanelProps {
   activeConversationId: string | null;

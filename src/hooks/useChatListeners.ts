@@ -12,23 +12,28 @@ export function useChatListeners(setIsSending: (value: boolean) => void) {
   useEffect(() => {
     let unlistenEvents: (() => void) | undefined;
     let unlistenError: (() => void) | undefined;
+    let isSetup = false;
 
     const setupListeners = async () => {
-      unlistenEvents = await listen<[string, EventMsg]>(
+      if (isSetup) return;
+      isSetup = true;
+
+      unlistenEvents = await listen<[string, string, EventMsg]>(
         "codex-event",
         (event) => {
-          const [, eventMsg] = event.payload;
+          const [, eventId, eventMsg] = event.payload;
+          const convId = useConversationStore.getState().activeConversationId;
+          
           if (!eventMsg || typeof eventMsg.type === "undefined") {
             console.error("Received malformed codex-event payload:", eventMsg);
             return;
           }
 
-          const convId = useConversationStore.getState().activeConversationId;
           if (eventMsg.type !== 'agent_message_delta') {
             console.log(`Received codex-event: ${convId}`, eventMsg);
           }
           if (!convId) return;
-          updateLastAgentMessage(convId, eventMsg);
+          updateLastAgentMessage(convId, { id: eventId, msg: eventMsg });
         },
       );
 
@@ -48,5 +53,5 @@ export function useChatListeners(setIsSending: (value: boolean) => void) {
       if (unlistenEvents) unlistenEvents();
       if (unlistenError) unlistenError();
     };
-  }, [updateLastAgentMessage, setIsInitializing, setIsSending]);
+  }, []);
 }

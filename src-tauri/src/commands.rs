@@ -1,6 +1,6 @@
 use codex_app_server_protocol::{InputItem, NewConversationParams, NewConversationResponse};
 use codex_protocol::ConversationId;
-use codex_protocol::protocol::EventMsg::AgentMessageDelta;
+use codex_protocol::protocol::{EventMsg::AgentMessageDelta};
 use tauri::Emitter;
 use tauri_plugin_log::log::{error, info};
 
@@ -80,13 +80,13 @@ pub async fn start_chat_session(
 
     tokio::spawn(async move {
         while let Ok(event) = event_rx.recv().await {
-            if !matches!(event, AgentMessageDelta(_)) {
+            if !matches!(event.msg, AgentMessageDelta(_)) {
                 info!(
                     "Emitting codex-event for session_id {}: {:?}",
                     client_session_id, event
                 );
             }
-            if let Err(e) = app.emit("codex-event", (client_session_id.clone(), event)) {
+            if let Err(e) = app.emit("codex-event", (client_session_id.clone(), event.id, event.msg)) {
                 error!(
                     "Failed to emit codex-event for session_id {}: {:?}",
                     client_session_id, e
@@ -159,16 +159,21 @@ pub async fn new_conversation(
 #[tauri::command]
 pub async fn exec_approval_request(
     session_id: String,
-    call_id: String,
-    approved: bool,
-    command: Vec<String>,
-    cwd: String,
+    request_id: String,
+    decision: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let client = get_client(&state, &session_id).await?;
-    info!("Executing approval request for call ID: {}", call_id);
+    info!("Sending exec approval response for request ID: {}", request_id);
+    let response = codex_app_server_protocol::ExecCommandApprovalResponse {
+        decision: if decision {
+            codex_protocol::protocol::ReviewDecision::Approved
+        } else {
+            codex_protocol::protocol::ReviewDecision::Denied
+        },
+    };
     client
-        .exec_approval_request(call_id, approved, command, cwd)
+        .send_response_to_server_request(request_id, response)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
