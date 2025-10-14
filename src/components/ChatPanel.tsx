@@ -54,28 +54,17 @@ export function ChatPanel({
                       msg.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    {msg.role === "assistant" ? (
-                      <div className="bg-primary rounded-full p-2">
-                        <BotMessageSquare className="text-primary-foreground h-5 w-5" />
-                      </div>
-                    ) : (
-                      <div className="w-8" />
-                    )}
                     <div
-                      className={`max-w-[80%] md:max-w-[60%] rounded-lg p-3 ${
+                      className={`w-[90%] rounded-lg p-3 ${
                         msg.role === "user"
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted"
                       }`}
                     >
                       {msg.role === "assistant" ? (
-                        <div className="bg-muted rounded-lg p-3">
-                          <div className="font-medium">🤖 Agent</div>
+                        <div className="bg-muted rounded-lg">
                           {msg.events && msg.events.length > 0 && (
                             <EventLog events={msg.events} />
-                          )}
-                          {msg.content && msg.content.trim() !== '' && (
-                            <p className="text-sm whitespace-pre-wrap mt-2">{msg.content}</p>
                           )}
                         </div>
                       ) : (

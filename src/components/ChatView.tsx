@@ -63,13 +63,13 @@ export function ChatView() {
         "codex-event",
         (event) => {
           const [, eventMsg] = event.payload;
-          console.log(`Received codex-event:`, eventMsg);
           if (!eventMsg || typeof eventMsg.type === "undefined") {
             console.error("Received malformed codex-event payload:", eventMsg);
             return;
           }
 
           const convId = useConversationStore.getState().activeConversationId;
+          console.log(`Received codex-event: ${convId}`, eventMsg);
           if (!convId) return;
           updateLastAgentMessage(convId, eventMsg);
         },
