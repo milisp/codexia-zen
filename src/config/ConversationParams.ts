@@ -52,7 +52,9 @@ export const getNewConversationParams = (
     sandbox: "workspace-write",
     includePlanTool: true,
     includeApplyPatchTool: true,
-    config: null,
+    config: {
+      "show_raw_agent_reasoning": true
+    },
     baseInstructions: null,
   };
 };

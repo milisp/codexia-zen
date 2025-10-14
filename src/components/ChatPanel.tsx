@@ -1,6 +1,5 @@
 import { ChatCompose } from "./ChatCompose";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BotMessageSquare } from "lucide-react";
 import type { Message } from "@/types/Message";
 import { useRef, useEffect } from "react";
 import EventLog from "./EventLog";
@@ -42,7 +41,7 @@ export function ChatPanel({
       <header className="flex items-center justify-between border-b p-2">
         <h1 className="text-xl font-bold">Chat</h1>
       </header>
-      <main className="flex flex-1 flex-col p-4 gap-4">
+      <main className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
         <div className="flex-1 mb-2 flex flex-col">
           <ScrollArea className="flex-1">
             <div ref={scrollAreaRef}>

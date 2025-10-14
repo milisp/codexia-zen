@@ -8,17 +8,36 @@ interface EventLogProps {
 
 const EventLog: React.FC<EventLogProps> = ({ events }) => {
   const commandMap = new Map<string, string>();
+  const agentMessageDeltas: string[] = [];
+  
   events.forEach(event => {
     if (event.type === 'exec_command_begin' && 'call_id' in event && 'command' in event) {
       commandMap.set(event.call_id, event.command.join(' '));
     }
+    if (event.type === 'agent_message_delta' && 'delta' in event) {
+      agentMessageDeltas.push(event.delta);
+    }
   });
 
-  const renderEvent = (event: EventMsg): JSX.Element | null => {
+  const accumulatedMessage = agentMessageDeltas.join('');
+
+  const renderEvent = (event: EventMsg, idx: number): JSX.Element | null => {
     switch (event.type) {
       case 'task_started':
         return <div className="text-sm text-gray-500">🚀 Task started</div>;
       
+      case 'agent_message_delta':
+        if (idx === events.findLastIndex(e => e.type === 'agent_message_delta')) {
+          return accumulatedMessage ? (
+            <div className="text-sm my-1">🤖 
+              <pre className="overflow-auto bg-gray-300 p-2 text-xs my-0">
+                <code>{accumulatedMessage}</code>
+              </pre>
+            </div>
+          ) : null;
+        }
+        return null;
+
       case 'agent_message':
         return 'message' in event ? <div className="text-sm my-1">🤖 
         <pre className="overflow-auto bg-gray-300 p-2 text-xs my-0">
@@ -50,7 +69,6 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
       case 'task_complete':
         return <div className="text-sm text-gray-500 mt-2">✅ Task complete</div>;
 
-      // Hide noisy events
       case 'exec_command_begin':
       case 'exec_command_output_delta':
       case 'token_count':
@@ -71,7 +89,7 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
               : `${event.type}-${idx}`
           }
         >
-          {renderEvent(event)}
+          {renderEvent(event, idx)}
         </div>
       ))}
     </div>

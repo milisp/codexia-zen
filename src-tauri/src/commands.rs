@@ -79,7 +79,7 @@ pub async fn start_chat_session(
                 "Failed to initialize app server for session_id {}: {:?}",
                 session_id, e
             );
-            let _ = app.emit("app_server_error", (client_session_id.clone(), e.to_string()));
+            let _ = app.emit("session_init_failed", (client_session_id.clone(), e.to_string()));
             return Err(format!(
                 "Failed to initialize app server for session_id {}: {}",
                 session_id, e
