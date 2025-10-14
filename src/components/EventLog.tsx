@@ -15,10 +15,10 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
   const { sessionId } = useSessionStore();
   
 
-  const handleApproval = async (call_id: string, approved: boolean) => {
-    console.log("exec_approval_request", sessionId)
+  const handleApproval = async (call_id: string, approved: boolean, command: string[], cwd: string) => {
+    console.log("exec_approval_request sessionId", sessionId, call_id)
     try {
-      await invoke("exec_approval_request", { sessionId: sessionId, callId: call_id, approved });
+      await invoke("exec_approval_request", { sessionId: sessionId, callId: call_id, approved, command, cwd });
     } catch (error) {
       console.error(`Failed to ${approved ? 'approve' : 'deny'} request:`, error);
     }
@@ -86,8 +86,8 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
         return <div>
           <div>🔄 {event.command.join(' ')}</div>
           <div className='flex gap-2'>
-            <Button onClick={() => handleApproval(callId, true)}>Approval</Button>
-            <Button onClick={() => handleApproval(callId, false)}>Deny</Button>
+            <Button onClick={() => handleApproval(callId, true, event.command, event.cwd)}>Approval</Button>
+            <Button onClick={() => handleApproval(callId, false, event.command, event.cwd)}>Deny</Button>
           </div>
         </div>
       

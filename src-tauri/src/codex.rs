@@ -17,9 +17,12 @@ use codex_protocol::protocol::{ErrorEvent, EventMsg};
 use crate::codex_discovery::discover_codex_command;
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExecApprovalRequestParams {
     pub call_id: String,
     pub approved: bool,
+    pub command: Vec<String>,
+    pub cwd: String,
 }
 
 const CODEX_APP_SERVER_ARGS: &[&str] = &["app-server"];
@@ -274,9 +277,11 @@ impl CodexClient {
         &self,
         call_id: String,
         approved: bool,
+        command: Vec<String>,
+        cwd: String,
     ) -> anyhow::Result<serde_json::Value> {
-        let params = ExecApprovalRequestParams { call_id, approved };
-        self.send_request("execApprovalRequest", serde_json::to_value(params)?)
+        let params = ExecApprovalRequestParams { call_id, approved, command, cwd };
+        self.send_request("ExecApprovalRequest", serde_json::to_value(params)?)
             .await
     }
 }

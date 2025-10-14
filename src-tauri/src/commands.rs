@@ -161,12 +161,14 @@ pub async fn exec_approval_request(
     session_id: String,
     call_id: String,
     approved: bool,
+    command: Vec<String>,
+    cwd: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let client = get_client(&state, &session_id).await?;
     info!("Executing approval request for call ID: {}", call_id);
     client
-        .exec_approval_request(call_id, approved)
+        .exec_approval_request(call_id, approved, command, cwd)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
