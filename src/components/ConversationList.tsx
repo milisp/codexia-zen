@@ -20,6 +20,11 @@ export function ConversationList({ onClearConversation }: ConversationListProps)
     onClearConversation();
   };
 
+  const handleSelectConversation = (conv: ConversationSummary) => {
+    console.log(conv)
+    setActiveConversationId(conv.conversationId);
+  };  
+
   return (
     <nav className="flex flex-col h-full bg-muted/30 p-4">
       <div className="mb-4">
@@ -38,6 +43,7 @@ export function ConversationList({ onClearConversation }: ConversationListProps)
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground"
                 }`}
+                onClick={() => handleSelectConversation(conv)}
               >
                 {conv.preview}
               </button>

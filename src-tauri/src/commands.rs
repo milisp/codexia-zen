@@ -1,40 +1,11 @@
-use codex_app_server_protocol::{
-    AddConversationListenerParams, AddConversationSubscriptionResponse, AuthMode, ClientInfo,
-    ConversationSummary, InitializeParams, InitializeResponse, InputItem,
-    ListConversationsResponse, NewConversationParams, NewConversationResponse,
-    SendUserMessageParams,
-};
-use codex_protocol::{ConversationId, protocol::EventMsg};
-use std::path::Path;
+use codex_app_server_protocol::{InputItem, NewConversationParams, NewConversationResponse};
+use codex_protocol::ConversationId;
+use codex_protocol::protocol::EventMsg::AgentMessageDelta;
 use tauri::Emitter;
 use tauri_plugin_log::log::{error, info};
-use ts_rs::TS;
 
 use crate::codex::CodexClient;
-use crate::state::{get_client, AppState};
-
-#[cfg(debug_assertions)]
-pub fn export_ts_types() {
-    let out_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("src")
-        .join("bindings");
-    std::fs::create_dir_all(&out_dir).unwrap();
-
-    AuthMode::export_all_to(&out_dir).unwrap();
-    NewConversationParams::export_all_to(&out_dir).unwrap();
-    NewConversationResponse::export_all_to(&out_dir).unwrap();
-    ConversationSummary::export_all_to(&out_dir).unwrap();
-    EventMsg::export_all_to(&out_dir).unwrap();
-    InitializeParams::export_all_to(&out_dir).unwrap();
-    ClientInfo::export_all_to(&out_dir).unwrap();
-    InitializeResponse::export_all_to(&out_dir).unwrap();
-    SendUserMessageParams::export_all_to(&out_dir).unwrap();
-    ListConversationsResponse::export_all_to(&out_dir).unwrap();
-    AddConversationListenerParams::export_all_to(&out_dir).unwrap();
-    AddConversationSubscriptionResponse::export_all_to(&out_dir).unwrap();
-    InputItem::export_all_to(&out_dir).unwrap();
-}
+use crate::state::{AppState, get_client};
 
 #[tauri::command]
 pub async fn start_chat_session(
@@ -47,14 +18,20 @@ pub async fn start_chat_session(
     let mut clients_guard = state.clients.lock().await;
 
     // Log current number of active sessions
-    info!("Current active sessions before start: {}", clients_guard.len());
+    info!(
+        "Current active sessions before start: {}",
+        clients_guard.len()
+    );
 
     if clients_guard.contains_key(&session_id) {
         info!("Client for session_id {} already initialized.", session_id);
         return Ok(session_id);
     }
 
-    info!("Initializing new chat session for session_id {}...", session_id);
+    info!(
+        "Initializing new chat session for session_id {}...",
+        session_id
+    );
 
     let client = CodexClient::new(api_key, provider);
     let mut event_rx = client.subscribe_to_events();
@@ -67,7 +44,10 @@ pub async fn start_chat_session(
                 "App server initialized for session_id {}: {:?}",
                 session_id, response
             );
-            if let Err(e) = app.emit("app_server_initialized", (client_session_id.clone(), response)) {
+            if let Err(e) = app.emit(
+                "app_server_initialized",
+                (client_session_id.clone(), response),
+            ) {
                 error!(
                     "Failed to emit app_server_initialized for session_id {}: {:?}",
                     client_session_id, e
@@ -79,7 +59,10 @@ pub async fn start_chat_session(
                 "Failed to initialize app server for session_id {}: {:?}",
                 session_id, e
             );
-            let _ = app.emit("session_init_failed", (client_session_id.clone(), e.to_string()));
+            let _ = app.emit(
+                "session_init_failed",
+                (client_session_id.clone(), e.to_string()),
+            );
             return Err(format!(
                 "Failed to initialize app server for session_id {}: {}",
                 session_id, e
@@ -90,11 +73,19 @@ pub async fn start_chat_session(
     clients_guard.insert(session_id.clone(), client);
 
     // Log updated number of active sessions
-    info!("Current active sessions after start: {}", clients_guard.len());
+    info!(
+        "Current active sessions after start: {}",
+        clients_guard.len()
+    );
 
     tokio::spawn(async move {
         while let Ok(event) = event_rx.recv().await {
-            info!("Emitting codex-event for session_id {}: {:?}", client_session_id, event);
+            if !matches!(event, AgentMessageDelta(_)) {
+                info!(
+                    "Emitting codex-event for session_id {}: {:?}",
+                    client_session_id, event
+                );
+            }
             if let Err(e) = app.emit("codex-event", (client_session_id.clone(), event)) {
                 error!(
                     "Failed to emit codex-event for session_id {}: {:?}",
@@ -102,7 +93,10 @@ pub async fn start_chat_session(
                 );
             }
         }
-        info!("Frontend event loop stopped for session_id {}.", client_session_id);
+        info!(
+            "Frontend event loop stopped for session_id {}.",
+            client_session_id
+        );
     });
 
     Ok(session_id)
@@ -143,7 +137,10 @@ pub async fn new_conversation(
     })?;
 
     let conversation_id = response.conversation_id.clone();
-    info!("New conversation created with ID: {}", conversation_id.to_string());
+    info!(
+        "New conversation created with ID: {}",
+        conversation_id.to_string()
+    );
 
     client
         .add_conversation_listener(conversation_id.clone())
@@ -157,4 +154,20 @@ pub async fn new_conversation(
         })?;
 
     Ok(response)
+}
+
+#[tauri::command]
+pub async fn exec_approval_request(
+    session_id: String,
+    call_id: String,
+    approved: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let client = get_client(&state, &session_id).await?;
+    info!("Executing approval request for call ID: {}", call_id);
+    client
+        .exec_approval_request(call_id, approved)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }

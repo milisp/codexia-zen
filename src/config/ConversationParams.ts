@@ -42,14 +42,16 @@ export const SANDBOX_MODES: Record<
 export const getNewConversationParams = (
   provider: any, // Replace 'any' with the actual type of provider
   selectedModel: string | null,
-  cwd: string | null
+  cwd: string | null,
+  approvalPolicy: AskForApproval,
+  mode: mode
 ): NewConversationParams => {
   return {
     profile: provider?.id ?? null,
     model: selectedModel,
     cwd: cwd,
-    approvalPolicy: "on-request",
-    sandbox: "workspace-write",
+    approvalPolicy: approvalPolicy,
+    sandbox: mode === "chat" ? "read-only" : mode === "agent" ? "workspace-write" : "danger-full-access",
     includePlanTool: true,
     includeApplyPatchTool: true,
     config: {

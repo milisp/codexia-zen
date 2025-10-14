@@ -28,11 +28,7 @@ fn get_vendor_platform_dir() -> Option<&'static str> {
 }
 
 fn get_vendor_binary_name() -> &'static str {
-    if cfg!(windows) {
-        "codex.exe"
-    } else {
-        "codex"
-    }
+    if cfg!(windows) { "codex.exe" } else { "codex" }
 }
 
 pub fn discover_codex_command() -> Option<PathBuf> {
@@ -103,10 +99,7 @@ pub fn discover_codex_command() -> Option<PathBuf> {
 
         for path_buf in &vendor_locations {
             if path_buf.exists() {
-                log::debug!(
-                    "Found codex vendor binary at {}",
-                    path_buf.display()
-                );
+                log::debug!("Found codex vendor binary at {}", path_buf.display());
                 return Some(path_buf.clone());
             }
         }
@@ -174,7 +167,10 @@ pub fn discover_codex_command() -> Option<PathBuf> {
                         if is_wrapper {
                             if wrapper_candidate.is_none() {
                                 wrapper_candidate = Some(candidate.clone());
-                                log::debug!("Found wrapper script candidate at {} (will use only if no native binary is found)", candidate.display());
+                                log::debug!(
+                                    "Found wrapper script candidate at {} (will use only if no native binary is found)",
+                                    candidate.display()
+                                );
                             }
                             continue;
                         }

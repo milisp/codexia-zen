@@ -1,8 +1,8 @@
-use std::{collections::HashMap, sync::Arc};
-use tauri_plugin_log::log::{error, info};
-
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use std::{collections::HashMap, sync::Arc};
+use tauri_plugin_log::log::{error, info};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,
@@ -15,6 +15,12 @@ use codex_protocol::ConversationId;
 use codex_protocol::protocol::{ErrorEvent, EventMsg};
 
 use crate::codex_discovery::discover_codex_command;
+
+#[derive(Debug, Serialize)]
+pub struct ExecApprovalRequestParams {
+    pub call_id: String,
+    pub approved: bool,
+}
 
 const CODEX_APP_SERVER_ARGS: &[&str] = &["app-server"];
 
@@ -54,9 +60,12 @@ impl CodexClient {
             "google" => "GEMINI_API_KEY",
             // Add other mappings as needed
             _ => {
-                error!("Unknown provider '{}', defaulting to GENERIC_API_KEY", provider);
+                error!(
+                    "Unknown provider '{}', defaulting to GENERIC_API_KEY",
+                    provider
+                );
                 "GENERIC_API_KEY"
-            },
+            }
         }
     }
 
@@ -258,6 +267,16 @@ impl CodexClient {
             items,
         };
         self.send_request("sendUserMessage", serde_json::to_value(params)?)
+            .await
+    }
+
+    pub async fn exec_approval_request(
+        &self,
+        call_id: String,
+        approved: bool,
+    ) -> anyhow::Result<serde_json::Value> {
+        let params = ExecApprovalRequestParams { call_id, approved };
+        self.send_request("execApprovalRequest", serde_json::to_value(params)?)
             .await
     }
 }

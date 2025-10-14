@@ -1,6 +1,9 @@
+import { invoke } from "@tauri-apps/api/core";
 import { EventMsg } from '@/bindings/EventMsg';
 import React, { JSX } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Button } from './ui/button';
+import { useSessionStore } from "@/stores/useSessionStore";
 
 interface EventLogProps {
   events: EventMsg[];
@@ -9,7 +12,18 @@ interface EventLogProps {
 const EventLog: React.FC<EventLogProps> = ({ events }) => {
   const commandMap = new Map<string, string>();
   const agentMessageDeltas: string[] = [];
+  const { sessionId } = useSessionStore();
   
+
+  const handleApproval = async (call_id: string, approved: boolean) => {
+    console.log("exec_approval_request", sessionId)
+    try {
+      await invoke("exec_approval_request", { sessionId: sessionId, callId: call_id, approved });
+    } catch (error) {
+      console.error(`Failed to ${approved ? 'approve' : 'deny'} request:`, error);
+    }
+  };
+
   events.forEach(event => {
     if (event.type === 'exec_command_begin' && 'call_id' in event && 'command' in event) {
       commandMap.set(event.call_id, event.command.join(' '));
@@ -65,6 +79,17 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
           </Accordion>
         );
       }
+
+      case 'exec_approval_request':
+        console.log(event)
+        const callId = 'call_id' in event ? event.call_id : '';
+        return <div>
+          <div>🔄 {event.command.join(' ')}</div>
+          <div className='flex gap-2'>
+            <Button onClick={() => handleApproval(callId, true)}>Approval</Button>
+            <Button onClick={() => handleApproval(callId, false)}>Deny</Button>
+          </div>
+        </div>
       
       case 'task_complete':
         return <div className="text-sm text-gray-500 mt-2">✅ Task complete</div>;

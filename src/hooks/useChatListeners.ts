@@ -24,7 +24,9 @@ export function useChatListeners(setIsSending: (value: boolean) => void) {
           }
 
           const convId = useConversationStore.getState().activeConversationId;
-          console.log(`Received codex-event: ${convId}`, eventMsg);
+          if (eventMsg.type !== 'agent_message_delta') {
+            console.log(`Received codex-event: ${convId}`, eventMsg);
+          }
           if (!convId) return;
           updateLastAgentMessage(convId, eventMsg);
         },
