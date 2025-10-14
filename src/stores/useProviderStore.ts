@@ -22,17 +22,24 @@ type ProviderActions = {
   addModel: (providerId: string, model: string) => void;
 };
 
+let ossModels: string[] = []
+fetch("http://localhost:11434/v1/models")
+  .then(resp => resp.json())
+  .then(data => 
+    ossModels = data.data.map((item: any) => item.id)
+  )
+
 const initialProviders: ModelProvider[] = [
-  {
-    id: "ollama",
-    name: "Ollama",
-    models: ["llama3.2", "qwen2.5-coder:0.5b"],
-    apiKey: "",
-  },
   {
     id: "openai",
     name: "OpenAI",
     models: ["gpt-5", "gpt-5-codex"],
+    apiKey: "",
+  },
+  {
+    id: "ollama",
+    name: "Ollama",
+    models: ossModels,
     apiKey: "",
   },
   {

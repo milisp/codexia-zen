@@ -218,7 +218,7 @@ export function ProviderModels() {
                 />
               ) : (
                 selectedProvider && (
-                  <ScrollArea className="h-64 rounded-md border">
+                  <ScrollArea className="h-56 rounded-md border">
                     <div className="p-2 space-y-1">
                       {selectedProvider.models.map((m) => (
                         <Button
