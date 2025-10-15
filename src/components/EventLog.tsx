@@ -14,7 +14,7 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
   const agentMessageDeltas: string[] = [];
   const { sessionId } = useSessionStore();
 
-  const handleApproval = async (request_id: string, approved: boolean) => {
+  const handleApproval = async (request_id: number, approved: boolean) => {
     console.log("exec_approval_request sessionId", sessionId, request_id, approved)
     try {
       await invoke("exec_approval_request", { sessionId: sessionId, requestId: request_id, decision: approved });
@@ -79,9 +79,8 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
         return <div>
           <div>🔄 {event.msg.command.join(' ')}</div>
             <div className="space-x-2 mt-1">
-            <Button size="sm" onClick={() => handleApproval(event.id, true)}>Approval</Button>
-            <Button size="sm" variant="destructive" onClick={() => handleApproval(event.id, false)}>
-                Deny</Button>
+            <Button size="sm" onClick={() => handleApproval(event.request_id ?? 0, true)}>Approval</Button>
+            <Button size="sm" variant="destructive" onClick={() => handleApproval(event.request_id ?? 0, false)}>Deny</Button>
           </div>
         </div>
       

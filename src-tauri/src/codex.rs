@@ -9,11 +9,6 @@ use tokio::{
     sync::{Mutex, broadcast, mpsc},
 };
 use uuid::Uuid;
-use std::collections::VecDeque;
-use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
-
-use codex_app_server_protocol::*;
 use codex_app_server_protocol::{
     AddConversationListenerParams, AddConversationSubscriptionResponse, ClientInfo,
     InitializeParams, InitializeResponse, InputItem, NewConversationParams,
@@ -34,7 +29,7 @@ pub struct CodexClient {
 }
 
 impl CodexClient {
-    pub fn new(api_key: String, provider: String) -> Self {
+    pub fn new(api_key: String, env_key: String) -> Self {
         let (stdin_tx, stdin_rx) = mpsc::channel(100);
         let (event_tx, _) = broadcast::channel(100);
         let request_map = Arc::new(Mutex::new(HashMap::new()));
@@ -44,7 +39,7 @@ impl CodexClient {
             event_tx.clone(),
             request_map.clone(),
             api_key,
-            provider,
+            env_key,
         ));
 
         Self {
@@ -54,34 +49,17 @@ impl CodexClient {
         }
     }
 
-    fn map_provider_to_env_key(provider: &str) -> &'static str {
-        match provider {
-            "openai" => "OPENAI_API_KEY",
-            "ollama" => "",
-            "openrouter" => "OPENROUTER_API_KEY",
-            "google" => "GEMINI_API_KEY",
-            // Add other mappings as needed
-            _ => {
-                error!(
-                    "Unknown provider '{}', defaulting to GENERIC_API_KEY",
-                    provider
-                );
-                "GENERIC_API_KEY"
-            }
-        }
-    }
-
     async fn run_app_server_process(
         mut stdin_rx: mpsc::Receiver<String>,
         event_tx: broadcast::Sender<Event>,
         request_map: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
         api_key: String,
-        provider: String,
+        env_key: String,
     ) {
         let mut envs = HashMap::new();
         if !api_key.is_empty() {
             envs.insert(
-                Self::map_provider_to_env_key(&provider).to_string(),
+                env_key,
                 api_key,
             );
         }
@@ -127,8 +105,6 @@ impl CodexClient {
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut lines = stdout.lines();
 
-        let mut event_deduplicator: VecDeque<u64> = VecDeque::with_capacity(1000);
-
         loop {
             tokio::select! {
                 line_result = lines.next_line() => {
@@ -152,21 +128,8 @@ impl CodexClient {
                                         if method.starts_with("codex/event/") {
                                             if let Some(msg) = json_value.pointer("/params/msg") {
                                                 if let Ok(event_msg) = serde_json::from_value::<EventMsg>(msg.clone()) {
-                                                    let mut hasher = DefaultHasher::new();
-                                                    serde_json::to_string(&event_msg).unwrap_or_default().hash(&mut hasher);
-                                                    let event_hash = hasher.finish();
-
-                                                    if !event_deduplicator.contains(&event_hash) {
-                                                        let event_id = Uuid::new_v4().to_string(); // Generate a new ID for notifications
-                                                        let _ = event_tx.send(Event { id: event_id, msg: event_msg });
-
-                                                        event_deduplicator.push_back(event_hash);
-                                                        if event_deduplicator.len() > 20 { // Keep buffer size limited
-                                                            event_deduplicator.pop_front();
-                                                        }
-                                                    } else {
-                                                        info!("Skipping duplicate event: {:?}", event_msg);
-                                                    }
+                                                    let event_id = Uuid::new_v4().to_string(); // Generate a new ID for notifications
+                                                    let _ = event_tx.send(Event { id: event_id, msg: event_msg });
                                                 } else {
                                                     error!("Failed to parse event from msg field: {}", line);
                                                 }
@@ -310,7 +273,7 @@ impl CodexClient {
 
     pub async fn send_response_to_server_request<R: Serialize>(
         &self,
-        request_id: String,
+        request_id: i64,
         result: R,
     ) -> anyhow::Result<()> {
         let response = serde_json::json!({

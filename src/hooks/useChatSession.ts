@@ -14,6 +14,7 @@ import { NewConversationResponse } from "@/bindings/NewConversationResponse";
 import { ConversationSummary } from "@/bindings/ConversationSummary";
 import { getNewConversationParams } from "@/config/ConversationParams";
 import { useSandboxStore } from "@/stores/useSandboxStore";
+import { mapProviderToEnvKey } from "@/utils/mapProviderEnvKey";
 
 export function useChatSession() {
   const { addMessage, setCurrentMessage } = useChatStore();
@@ -42,7 +43,7 @@ export function useChatSession() {
       await invoke("start_chat_session", {
         sessionId: uuid,
         apiKey: provider?.apiKey ?? "",
-        provider: provider?.id,
+        envKey: mapProviderToEnvKey(provider?.id),
       });
       setSessionActive(true);
       setSessionId(uuid);

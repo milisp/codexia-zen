@@ -11,7 +11,7 @@ use crate::state::{AppState, get_client};
 pub async fn start_chat_session(
     session_id: String,
     api_key: String,
-    provider: String,
+    env_key: String,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
@@ -33,7 +33,7 @@ pub async fn start_chat_session(
         session_id
     );
 
-    let client = CodexClient::new(api_key, provider);
+    let client = CodexClient::new(api_key, env_key);
     let mut event_rx = client.subscribe_to_events();
     let client_session_id = session_id.clone();
 
@@ -159,7 +159,7 @@ pub async fn new_conversation(
 #[tauri::command]
 pub async fn exec_approval_request(
     session_id: String,
-    request_id: String,
+    request_id: i64,
     decision: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -172,6 +172,7 @@ pub async fn exec_approval_request(
             codex_protocol::protocol::ReviewDecision::Denied
         },
     };
+    info!("Approval decision: {:?}", response.decision);
     client
         .send_response_to_server_request(request_id, response)
         .await
