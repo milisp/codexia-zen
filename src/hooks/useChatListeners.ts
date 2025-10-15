@@ -29,7 +29,7 @@ export function useChatListeners(setIsSending: (value: boolean) => void) {
             return;
           }
 
-          if (eventMsg.type !== 'agent_message_delta') {
+          if (eventMsg.type !== 'agent_message_delta' && eventMsg.type !== 'agent_reasoning_raw_content_delta') {
             console.log(`Received codex-event: ${convId}`, eventMsg);
           }
           if (!convId) return;

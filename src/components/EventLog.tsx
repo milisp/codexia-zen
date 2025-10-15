@@ -12,6 +12,7 @@ interface EventLogProps {
 const EventLog: React.FC<EventLogProps> = ({ events }) => {
   const commandMap = new Map<string, string>();
   const agentMessageDeltas: string[] = [];
+  const AgentReasoningRawContentDeltas: string[] = [];
   const { sessionId } = useSessionStore();
 
   const handleApproval = async (request_id: number, approved: boolean) => {
@@ -30,9 +31,14 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
     if (event.msg.type === 'agent_message_delta' && 'delta' in event.msg) {
       agentMessageDeltas.push(event.msg.delta);
     }
+
+    if (event.msg.type === 'agent_reasoning_raw_content_delta' && 'delta' in event.msg) {
+      AgentReasoningRawContentDeltas.push(event.msg.delta);
+    }
   });
 
   const accumulatedMessage = agentMessageDeltas.join('');
+  const accumulatedReasonMessage = AgentReasoningRawContentDeltas.join('');
 
   const renderEvent = (event: EventWithId, idx: number): JSX.Element | null => {
     switch (event.msg.type) {
@@ -46,6 +52,27 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
             <div className="text-sm my-1">🤖 
               <pre className="overflow-auto bg-gray-300 p-2 text-xs my-0">
                 <code>{accumulatedMessage}</code>
+              </pre>
+            </div>
+          ) : null;
+        }
+        return null;
+      }
+
+      case 'agent_reasoning_raw_content':
+        return <div className="text-sm my-1">🤖 
+              <pre className="overflow-auto bg-gray-300 p-2 text-xs my-0">
+                <code>{event.msg.text}</code>
+              </pre>
+            </div>
+
+      case 'agent_reasoning_raw_content_delta': {
+        const lastIndex = events.findLastIndex(e => e.msg.type === 'agent_reasoning_raw_content_delta');
+        if (idx === lastIndex) {
+          return accumulatedReasonMessage ? (
+            <div className="text-sm my-1">🤖 
+              <pre className="overflow-auto bg-gray-300 p-2 text-xs my-0">
+                <code>{accumulatedReasonMessage}</code>
               </pre>
             </div>
           ) : null;

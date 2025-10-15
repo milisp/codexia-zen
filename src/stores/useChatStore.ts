@@ -54,6 +54,10 @@ export const useChatStore = create<ChatState & ChatActions>()((set, get) => ({
           newContent += event.msg.delta;
         } else if (event.msg.type === "agent_message") {
           newContent = event.msg.message;
+        } else if (event.msg.type === "agent_reasoning_raw_content") {
+          newContent = event.msg.text;
+        } else if (event.msg.type === "agent_reasoning_raw_content_delta") {
+          newContent = event.msg.delta;
         } else if (event.msg.type === "task_complete" && event.msg.last_agent_message) {
           newContent = event.msg.last_agent_message;
         }
@@ -83,6 +87,10 @@ export const useChatStore = create<ChatState & ChatActions>()((set, get) => ({
     let initialContent = "";
     if (event.msg.type === "agent_message_delta") {
       initialContent = event.msg.delta;
+    } else if (event.msg.type === "agent_reasoning_raw_content_delta") {
+        initialContent = event.msg.delta;
+    } else if (event.msg.type === "agent_reasoning_raw_content") {
+      initialContent = event.msg.text;
     } else if (event.msg.type === "agent_message") {
       initialContent = event.msg.message;
     } else if (event.msg.type === "task_complete" && event.msg.last_agent_message) {
