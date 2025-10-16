@@ -12,7 +12,7 @@ import { Message } from "@/types/Message";
 import { InputItem } from "@/bindings/InputItem";
 import { NewConversationResponse } from "@/bindings/NewConversationResponse";
 import { ConversationSummary } from "@/bindings/ConversationSummary";
-import { getNewConversationParams } from "@/config/ConversationParams";
+import { getNewConversationParams } from "@/components/config/ConversationParams";
 import { useSandboxStore } from "@/stores/useSandboxStore";
 import { mapProviderToEnvKey } from "@/utils/mapProviderEnvKey";
 
@@ -26,7 +26,7 @@ export function useChatSession() {
     setSessionActive,
     setIsInitializing,
   } = useSessionStore();
-  const { providers, selectedProviderId, selectedModel } = useProviderStore();
+  const { providers, selectedProviderId, selectedModel, reasoningEffort } = useProviderStore();
   const provider = providers.find((p) => p.id === selectedProviderId);
   const { cwd } = useCodexStore();
   const { mode, approvalPolicy } = useSandboxStore();
@@ -77,7 +77,9 @@ export function useChatSession() {
 
     if (!conversationIdToUse) {
       try {
-        const params = getNewConversationParams(provider, selectedModel, cwd, approvalPolicy, mode);
+        const params = getNewConversationParams(provider, selectedModel, cwd, approvalPolicy, mode, {
+          model_reasoning_effort: reasoningEffort,
+        });
         const response = await invoke<NewConversationResponse>(
           "new_conversation",
           { sessionId: currentSessionId, params },

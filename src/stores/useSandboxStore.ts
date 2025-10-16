@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 import { AskForApproval } from "@/bindings/AskForApproval";
-import { mode, SANDBOX_MODES } from "@/config/ConversationParams";
+import { mode, SANDBOX_MODES } from "@/components/config/ConversationParams";
 
 interface SandboxState {
   mode: mode;
@@ -23,8 +23,7 @@ export const useSandboxStore = create<SandboxState>()(
       setApprovalPolicy: (approvalPolicy) => set({ approvalPolicy }),
     }),
     {
-      name: "sandbox-storage", // unique name
-      storage: createJSONStorage(() => localStorage), // use localStorage for persistence
+      name: "sandbox-storage",
     },
   ),
 );

@@ -15,6 +15,13 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
   const AgentReasoningRawContentDeltas: string[] = [];
   const { sessionId } = useSessionStore();
 
+  React.useEffect(() => {
+    const approvalEvents = events.filter(e => e.msg.type === "exec_approval_request");
+    if (approvalEvents.length > 0) {
+      console.log("Approval events:", approvalEvents);
+    }
+  }, [events]);
+
   const handleApproval = async (request_id: number, approved: boolean) => {
     console.log("exec_approval_request sessionId", sessionId, request_id, approved)
     try {
@@ -102,7 +109,6 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
       }
 
       case 'exec_approval_request':
-        console.log(event.msg)
         return <div>
           <div>🔄 {event.msg.command.join(' ')}</div>
             <div className="space-x-2 mt-1">

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 import { ConversationSummary } from "@/bindings/ConversationSummary";
 
 interface ConversationStore {
@@ -27,8 +27,7 @@ export const useConversationStore = create<ConversationStore>()(
       },
     }),
     {
-      name: "conversation",
-      storage: createJSONStorage(() => localStorage),
+      name: "conversation"
     },
   ),
 );

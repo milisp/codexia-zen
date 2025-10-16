@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 
 interface CodexStore {
   cwd: string | null;
@@ -13,8 +13,7 @@ export const useCodexStore = create<CodexStore>()(
       setCwd: (cwd) => set({ cwd }),
     }),
     {
-      name: "codex",
-      storage: createJSONStorage(() => localStorage),
+      name: "codex"
     },
   ),
 );

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 
 export interface ModelProvider {
   id: string;
@@ -8,10 +8,13 @@ export interface ModelProvider {
   apiKey: string;
 }
 
+type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
+
 type ProviderState = {
   providers: ModelProvider[];
   selectedProviderId: string | null;
   selectedModel: string | null;
+  reasoningEffort: ReasoningEffort;
 };
 
 type ProviderActions = {
@@ -20,6 +23,7 @@ type ProviderActions = {
   setSelectedProviderId: (id: string) => void;
   setSelectedModel: (model: string) => void;
   addModel: (providerId: string, model: string) => void;
+  setReasoningEffort: (effort: ReasoningEffort) => void;
 };
 
 let ossModels: string[] = []
@@ -62,6 +66,7 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
       providers: initialProviders,
       selectedProviderId: initialProviders[0].id,
       selectedModel: initialProviders[0].models[0],
+      reasoningEffort: 'medium',
 
       setSelectedProviderId: (id: string) => {
         const provider = get().providers.find((p) => p.id === id);
@@ -97,10 +102,9 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
           ),
         }));
       },
-    }),
+      setReasoningEffort: (effort) => set({ reasoningEffort: effort }),    }),
     {
-      name: "provider",
-      storage: createJSONStorage(() => localStorage),
+      name: "provider"
     },
   ),
 );

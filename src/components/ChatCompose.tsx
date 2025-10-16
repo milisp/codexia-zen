@@ -1,9 +1,10 @@
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ProviderModels } from "./provider-models";
+import { ProviderModels } from "./config/provider-models";
 import { Send } from "lucide-react";
-import { Sandbox } from "./Sandbox";
+import { Sandbox } from "./config/Sandbox";
+import { ReasoningEffortSelector } from "./config/ReasoningEffortSelector";
 
 interface ChatComposeProps {
   currentMessage: string;
@@ -48,6 +49,7 @@ export function ChatCompose({
       <div>
         <Sandbox />
         <ProviderModels />
+        <ReasoningEffortSelector />
       </div>
     </div>
   );

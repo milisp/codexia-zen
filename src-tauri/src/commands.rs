@@ -1,8 +1,8 @@
 use codex_app_server_protocol::{InputItem, NewConversationParams, NewConversationResponse};
 use codex_protocol::ConversationId;
-use codex_protocol::protocol::{EventMsg::AgentMessageDelta};
+use codex_protocol::protocol::EventMsg::{AgentMessageDelta, AgentReasoningRawContentDelta};
 use tauri::Emitter;
-use tauri_plugin_log::log::{error, info, debug};
+use tauri_plugin_log::log::{debug, error, info};
 
 use crate::codex::CodexClient;
 use crate::state::{AppState, get_client};
@@ -65,13 +65,19 @@ pub async fn start_chat_session(
 
     tokio::spawn(async move {
         while let Ok(event) = event_rx.recv().await {
-            if !matches!(event.msg, AgentMessageDelta(_)) {
+            if !matches!(
+                event.msg,
+                AgentMessageDelta(_) | AgentReasoningRawContentDelta(_)
+            ) {
                 info!(
                     "Emitting codex-event for session_id {}: {:?}",
                     client_session_id, event
                 );
             }
-            if let Err(e) = app.emit("codex-event", (client_session_id.clone(), event.id, event.msg)) {
+            if let Err(e) = app.emit(
+                "codex-event",
+                (client_session_id.clone(), event.id, event.msg),
+            ) {
                 error!(
                     "Failed to emit codex-event for session_id {}: {:?}",
                     client_session_id, e
@@ -113,6 +119,7 @@ pub async fn new_conversation(
     state: tauri::State<'_, AppState>,
 ) -> Result<NewConversationResponse, String> {
     let client = get_client(&state, &session_id).await?;
+    info!("{:?}", params);
     let response = client.new_conversation(params).await.map_err(|e| {
         error!(
             "Error from codex app-server during new_conversation: {:?}",
@@ -145,7 +152,10 @@ pub async fn exec_approval_request(
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let client = get_client(&state, &session_id).await?;
-    info!("Sending exec approval response for request ID: {}", request_id);
+    info!(
+        "Sending exec approval response for request ID: {}",
+        request_id
+    );
     let response = codex_app_server_protocol::ExecCommandApprovalResponse {
         decision: if decision {
             codex_protocol::protocol::ReviewDecision::Approved

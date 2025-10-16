@@ -39,24 +39,34 @@ export const SANDBOX_MODES: Record<
   },
 };
 
+
+const defaultConfig = {
+  "model_reasoning_effort": 'medium',
+  "show_raw_agent_reasoning": true,
+  "model_reasoning_summary": "auto"
+}
+
 export const getNewConversationParams = (
   provider: any, // Replace 'any' with the actual type of provider
   selectedModel: string | null,
   cwd: string | null,
   approvalPolicy: AskForApproval,
-  mode: mode
+  mode: mode,
+  config?: Record<string, any> | null,
 ): NewConversationParams => {
+  const mergeConfig = config ? {
+    ...defaultConfig,
+    ...config
+  } : defaultConfig
   return {
     profile: provider?.id ?? null,
     model: selectedModel,
-    cwd: cwd,
+    cwd,
     approvalPolicy: approvalPolicy,
     sandbox: mode === "chat" ? "read-only" : mode === "agent" ? "workspace-write" : "danger-full-access",
     includePlanTool: true,
     includeApplyPatchTool: true,
-    config: {
-      "show_raw_agent_reasoning": true
-    },
+    config: mergeConfig,
     baseInstructions: null,
   };
 };
