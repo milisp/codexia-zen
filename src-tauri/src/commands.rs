@@ -2,7 +2,7 @@ use codex_app_server_protocol::{InputItem, NewConversationParams, NewConversatio
 use codex_protocol::ConversationId;
 use codex_protocol::protocol::{EventMsg::AgentMessageDelta};
 use tauri::Emitter;
-use tauri_plugin_log::log::{error, info};
+use tauri_plugin_log::log::{error, info, debug};
 
 use crate::codex::CodexClient;
 use crate::state::{AppState, get_client};
@@ -17,14 +17,7 @@ pub async fn start_chat_session(
 ) -> Result<String, String> {
     let mut clients_guard = state.clients.lock().await;
 
-    // Log current number of active sessions
-    info!(
-        "Current active sessions before start: {}",
-        clients_guard.len()
-    );
-
     if clients_guard.contains_key(&session_id) {
-        info!("Client for session_id {} already initialized.", session_id);
         return Ok(session_id);
     }
 
@@ -40,10 +33,6 @@ pub async fn start_chat_session(
     let init_result = client.initialize().await;
     match init_result {
         Ok(response) => {
-            info!(
-                "App server initialized for session_id {}: {:?}",
-                session_id, response
-            );
             if let Err(e) = app.emit(
                 "app_server_initialized",
                 (client_session_id.clone(), response),
@@ -72,11 +61,7 @@ pub async fn start_chat_session(
 
     clients_guard.insert(session_id.clone(), client);
 
-    // Log updated number of active sessions
-    info!(
-        "Current active sessions after start: {}",
-        clients_guard.len()
-    );
+    debug!("Current active sessions : {}", clients_guard.len());
 
     tokio::spawn(async move {
         while let Ok(event) = event_rx.recv().await {
@@ -137,10 +122,6 @@ pub async fn new_conversation(
     })?;
 
     let conversation_id = response.conversation_id.clone();
-    info!(
-        "New conversation created with ID: {}",
-        conversation_id.to_string()
-    );
 
     client
         .add_conversation_listener(conversation_id.clone())
@@ -172,7 +153,6 @@ pub async fn exec_approval_request(
             codex_protocol::protocol::ReviewDecision::Denied
         },
     };
-    info!("Approval decision: {:?}", response.decision);
     client
         .send_response_to_server_request(request_id, response)
         .await
