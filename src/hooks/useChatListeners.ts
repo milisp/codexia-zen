@@ -25,7 +25,7 @@ export function useChatListeners(setIsSending: (value: boolean) => void) {
           const convId = useConversationStore.getState().activeConversationId;
           
           if (!eventMsg || typeof eventMsg.type === "undefined") {
-            console.error("Received malformed codex-event payload:", eventMsg);
+            // console.error("Received malformed codex-event payload:", eventMsg);
             return;
           }
 

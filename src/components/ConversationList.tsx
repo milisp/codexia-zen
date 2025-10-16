@@ -1,29 +1,42 @@
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
-import { useConversationStore } from "@/stores/useConversationStore";
-import { ConversationSummary } from "@/bindings/ConversationSummary";
+import {
+  useConversationStore,
+  Conversation,
+} from "@/stores/useConversationStore";
 import { useChatStore } from "@/stores/useChatStore";
+import { useCodexStore } from "@/stores/useCodexStore";
+import { useSessionStore } from "@/stores/useSessionStore";
 
 interface ConversationListProps {
   onClearConversation: () => void;
 }
 
-export function ConversationList({ onClearConversation }: ConversationListProps) {
-  const { conversations, activeConversationId, setActiveConversationId } = useConversationStore();
+export function ConversationList({
+  onClearConversation,
+}: ConversationListProps) {
+  const { conversationsByCwd, activeConversationId, setActiveConversationId } =
+    useConversationStore();
+  const { cwd } = useCodexStore();
+  const { setSessionId } = useSessionStore();
   const { clearMessages } = useChatStore();
+
+  const conversations = cwd ? conversationsByCwd[cwd] || [] : [];
 
   const handleClearConversation = () => {
     if (activeConversationId) {
       clearMessages(activeConversationId);
     }
     setActiveConversationId(null);
+    setSessionId(null);
     onClearConversation();
   };
 
-  const handleSelectConversation = (conv: ConversationSummary) => {
-    console.log(conv)
+  const handleSelectConversation = (conv: Conversation) => {
+    console.log(conv);
     setActiveConversationId(conv.conversationId);
-  };  
+    setSessionId(conv.sessionId);
+  };
 
   return (
     <nav className="flex flex-col h-full bg-muted/30 p-4">
@@ -35,7 +48,7 @@ export function ConversationList({ onClearConversation }: ConversationListProps)
           </Button>
         </div>
         <ul className="space-y-1">
-          {conversations?.map((conv: ConversationSummary, idx: number) => (
+          {conversations?.map((conv: Conversation, idx: number) => (
             <li key={conv.conversationId ?? `conv-${idx}`}>
               <button
                 className={`flex w-full items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${

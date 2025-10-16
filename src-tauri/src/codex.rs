@@ -12,7 +12,7 @@ use uuid::Uuid;
 use codex_app_server_protocol::{
     AddConversationListenerParams, AddConversationSubscriptionResponse, ClientInfo,
     InitializeParams, InitializeResponse, InputItem, NewConversationParams,
-    NewConversationResponse, SendUserMessageParams, ServerRequest,
+    NewConversationResponse, SendUserMessageParams,
 };
 use codex_protocol::ConversationId;
 use codex_protocol::protocol::{ErrorEvent, Event, EventMsg};
@@ -69,7 +69,7 @@ impl CodexClient {
             None => {
                 error!("Failed to discover codex app-server command.");
                 let _ = event_tx.send(Event {
-                    id: Uuid::new_v4().to_string(), // Generate a new ID for the error event
+                    id: Uuid::new_v4().to_string(),
                     msg: EventMsg::Error(ErrorEvent {
                         message: "Failed to start codex app-server. No codex binary found."
                             .to_string(),
@@ -92,7 +92,7 @@ impl CodexClient {
                 error!("Failed to spawn codex app-server: {}", e);
                 // Emit an error event to the frontend
                 let _ = event_tx.send(Event {
-                    id: Uuid::new_v4().to_string(), // Generate a new ID for the error event
+                    id: Uuid::new_v4().to_string(),
                     msg: EventMsg::Error(ErrorEvent {
                         message: format!("Failed to start codex app-server. Error: {}", e),
                     }),
@@ -124,32 +124,19 @@ impl CodexClient {
                                 };
 
                                 if !is_response {
-                                    if let Some(method) = json_value.get("method").and_then(|v| v.as_str()) {
-                                        if method.starts_with("codex/event/") {
-                                            if let Some(msg) = json_value.pointer("/params/msg") {
-                                                if let Ok(event_msg) = serde_json::from_value::<EventMsg>(msg.clone()) {
-                                                    let event_id = Uuid::new_v4().to_string(); // Generate a new ID for notifications
-                                                    let _ = event_tx.send(Event { id: event_id, msg: event_msg });
-                                                } else {
-                                                    error!("Failed to parse event from msg field: {}", line);
-                                                }
-                                            } else {
-                                                error!("Received codex-event without msg field: {}", line);
-                                            }
-                                        } else if let Ok(server_request) = serde_json::from_value::<ServerRequest>(json_value.clone()) {
-                                            // ServerRequests are handled as direct requests for interaction,
-                                            // not as events to be emitted to the frontend for display in the event log.
-                                            // The frontend will handle these requests directly to trigger approval UI.
-                                            info!("Received ServerRequest: {:?}", server_request);
+                                    if let Some(msg) = json_value.pointer("/params/msg") {
+                                        if let Ok(event_msg) = serde_json::from_value::<EventMsg>(msg.clone()) {
+                                            let event_id = Uuid::new_v4().to_string(); // Generate a new ID for notifications
+                                            let _ = event_tx.send(Event { id: event_id, msg: event_msg });
                                         } else {
-                                            info!("Received non-event or non-request message: {:?}", json_value);
+                                            println!("Failed to parse event from msg field: {}", line);
                                         }
                                     } else {
-                                        info!("Received non-event or non-request message without method field: {:?}", json_value);
+                                        println!("Received codex-event without msg field: {}", line);
                                     }
                                 }
                             } else {
-                                error!("Received non-JSON line from codex: {}", line);
+                                println!("Received non-JSON line from codex: {}", line);
                             }
                         },
                         Ok(None) => {
@@ -208,7 +195,7 @@ impl CodexClient {
             .recv()
             .await
             .ok_or_else(|| anyhow::anyhow!("Request channel closed before response"))?;
-        info!("Raw response from codex app-server: {:?}", response);
+        println!("Raw response from codex app-server: {:?}", response);
 
         if let Some(error) = response.get("error") {
             return Err(anyhow::anyhow!("App server error: {:?}", error));

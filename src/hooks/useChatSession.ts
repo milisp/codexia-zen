@@ -7,11 +7,13 @@ import { useChatStore } from "@/stores/useChatStore";
 import { useProviderStore } from "@/stores/useProviderStore";
 import { useSessionStore } from "@/stores/useSessionStore";
 import { useCodexStore } from "@/stores/useCodexStore";
-import { useConversationStore } from "@/stores/useConversationStore";
+import {
+  useConversationStore,
+  Conversation,
+} from "@/stores/useConversationStore";
 import { Message } from "@/types/Message";
 import { InputItem } from "@/bindings/InputItem";
 import { NewConversationResponse } from "@/bindings/NewConversationResponse";
-import { ConversationSummary } from "@/bindings/ConversationSummary";
 import { getNewConversationParams } from "@/components/config/ConversationParams";
 import { useSandboxStore } from "@/stores/useSandboxStore";
 import { mapProviderToEnvKey } from "@/utils/mapProviderEnvKey";
@@ -26,7 +28,8 @@ export function useChatSession() {
     setSessionActive,
     setIsInitializing,
   } = useSessionStore();
-  const { providers, selectedProviderId, selectedModel, reasoningEffort } = useProviderStore();
+  const { providers, selectedProviderId, selectedModel, reasoningEffort } =
+    useProviderStore();
   const provider = providers.find((p) => p.id === selectedProviderId);
   const { cwd } = useCodexStore();
   const { mode, approvalPolicy } = useSandboxStore();
@@ -76,10 +79,24 @@ export function useChatSession() {
     let conversationIdToUse = activeConversationId;
 
     if (!conversationIdToUse) {
+      if (!cwd) {
+        toast.error(
+          "Cannot create a conversation without an active project directory.",
+        );
+        setIsSending(false);
+        return;
+      }
       try {
-        const params = getNewConversationParams(provider, selectedModel, cwd, approvalPolicy, mode, {
-          model_reasoning_effort: reasoningEffort,
-        });
+        const params = getNewConversationParams(
+          provider,
+          selectedModel,
+          cwd,
+          approvalPolicy,
+          mode,
+          {
+            model_reasoning_effort: reasoningEffort,
+          },
+        );
         const response = await invoke<NewConversationResponse>(
           "new_conversation",
           { sessionId: currentSessionId, params },
@@ -91,13 +108,14 @@ export function useChatSession() {
           setIsSending(false);
           return;
         }
-        const newConversation: ConversationSummary = {
+        const newConversation: Conversation = {
           conversationId: newConversationId,
-          preview: `Chat - ${new Date().toLocaleTimeString()}`,
+          preview: currentMessage,
           path: response.rolloutPath,
           timestamp: new Date().toLocaleTimeString(),
+          sessionId: currentSessionId,
         };
-        addConversation(newConversation);
+        addConversation(cwd, newConversation);
         setActiveConversationId(newConversationId);
         conversationIdToUse = newConversationId;
 
@@ -136,13 +154,6 @@ export function useChatSession() {
       timestamp: Date.now(),
     };
     addMessage(conversationIdToUse, userMessage);
-    addMessage(conversationIdToUse, {
-      id: Date.now().toString() + "-agent",
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-      events: [],
-    });
 
     setCurrentMessage("");
 

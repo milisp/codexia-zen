@@ -2,32 +2,39 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { ConversationSummary } from "@/bindings/ConversationSummary";
 
+export type Conversation = ConversationSummary & { sessionId: string };
+
 interface ConversationStore {
-  conversations: ConversationSummary[];
+  conversationsByCwd: Record<string, Conversation[]>;
   activeConversationId: string | null;
-  setConversations: (conversations: ConversationSummary[]) => void;
+  setConversations: (cwd: string, conversations: Conversation[]) => void;
   setActiveConversationId: (id: string | null) => void;
-  addConversation: (conversation: ConversationSummary) => void;
-  selectConversation: (id: string) => void;
+  addConversation: (cwd: string, conversation: Conversation) => void;
 }
 
 export const useConversationStore = create<ConversationStore>()(
   persist(
     (set) => ({
-      conversations: [],
+      conversationsByCwd: {},
       activeConversationId: null,
-      setConversations: (conversations) => set({ conversations }),
-      setActiveConversationId: (id) => set({ activeConversationId: id }),
-      addConversation: (conversation) =>
+      setConversations: (cwd, conversations) =>
         set((state) => ({
-          conversations: [...state.conversations, conversation],
+          conversationsByCwd: {
+            ...state.conversationsByCwd,
+            [cwd]: conversations,
+          },
         })),
-      selectConversation: (id: string) => {
-        set({ activeConversationId: id });
-      },
+      setActiveConversationId: (id) => set({ activeConversationId: id }),
+      addConversation: (cwd, conversation) =>
+        set((state) => ({
+          conversationsByCwd: {
+            ...state.conversationsByCwd,
+            [cwd]: [...(state.conversationsByCwd[cwd] || []), conversation],
+          },
+        })),
     }),
     {
-      name: "conversation"
+      name: "conversation",
     },
   ),
 );
