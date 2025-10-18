@@ -3,11 +3,11 @@ import { useChatListeners } from "./useChatListeners";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { v4 } from "uuid";
-import { useChatStore } from "@/stores/useChatStore";
+import { useConversationStore } from "@/stores/useConversationStore";
 import { useProviderStore } from "@/stores/useProviderStore";
 import { useSessionStore } from "@/stores/useSessionStore";
 import { useCodexStore } from "@/stores/useCodexStore";
-import { useConversationStore } from "@/stores/useConversationStore";
+import { useConversationListStore } from "@/stores/useConversationListStore";
 import { Message } from "@/types/Message";
 import { InputItem } from "@/bindings/InputItem";
 import { NewConversationResponse } from "@/bindings/NewConversationResponse";
@@ -17,8 +17,8 @@ import { mapProviderToEnvKey } from "@/utils/mapProviderEnvKey";
 import { ConversationSummary } from "@/bindings/ConversationSummary";
 
 export function useChatSession() {
-  const { addMessage, setCurrentMessage } = useChatStore();
-  const { activeConversationId, setActiveConversationId, addConversation } = useConversationStore();
+  const { addMessage, setCurrentMessage } = useConversationStore();
+  const { activeConversationId, setActiveConversationId, addConversation } = useConversationListStore();
   const { sessionId, setSessionId, setSessionActive, setIsInitializing } = useSessionStore();
   const { providers, selectedProviderId, selectedModel, reasoningEffort } = useProviderStore();
   const provider = providers.find((p) => p.id === selectedProviderId);

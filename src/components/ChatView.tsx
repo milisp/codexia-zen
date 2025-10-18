@@ -1,7 +1,7 @@
 import { useRef } from "react";
-import { useChatStore } from "@/stores/useChatStore";
-import { useSessionStore } from "@/stores/useSessionStore";
 import { useConversationStore } from "@/stores/useConversationStore";
+import { useSessionStore } from "@/stores/useSessionStore";
+import { useConversationListStore } from "@/stores/useConversationListStore";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -13,8 +13,8 @@ import { useChatSession } from "@/hooks/useChatSession";
 
 export function ChatView() {
   const chatInputRef = useRef<HTMLInputElement>(null);
-  const { messages, currentMessage, setCurrentMessage } = useChatStore();
-  const { activeConversationId } = useConversationStore();
+  const { messages, currentMessage, setCurrentMessage } = useConversationStore();
+  const { activeConversationId } = useConversationListStore();
   const { isInitializing } = useSessionStore();
   const { isSending, handleSendMessage, handleNewConversation } = useChatSession();
 

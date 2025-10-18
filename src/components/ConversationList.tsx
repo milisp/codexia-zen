@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
-import { useConversationStore } from "@/stores/useConversationStore";
+import { useConversationListStore } from "@/stores/useConversationListStore";
 import { useCodexStore } from "@/stores/useCodexStore";
 
 interface ConversationListProps {
@@ -8,7 +8,7 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ onNewTempConversation }: ConversationListProps) {
-  const { conversationsByCwd, activeConversationId, setActiveConversationId } = useConversationStore();
+  const { conversationsByCwd, activeConversationId, setActiveConversationId } = useConversationListStore();
   const { cwd } = useCodexStore();
 
   const conversations = conversationsByCwd[cwd || ""] || [];

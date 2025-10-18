@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { useChatStore } from "@/stores/useChatStore";
+import { useConversationStore } from "@/stores/useConversationStore";
 import { Line } from "@/types";
 
 export function useChatListeners() {
-  const { updateLastAgentMessage } = useChatStore();
+  const { updateLastAgentMessage } = useConversationStore();
 
   useEffect(() => {
     let unlistenEvents: (() => void) | undefined;
