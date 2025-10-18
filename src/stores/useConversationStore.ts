@@ -18,9 +18,6 @@ type ChatActions = {
 
 const extractEventContent = (msg: EventMsg): string => {
   switch (msg.type) {
-    case "agent_message_delta":
-    case "agent_reasoning_raw_content_delta":
-      return msg.delta;
     case "agent_message":
       return msg.message;
     case "agent_reasoning_raw_content":
@@ -51,40 +48,43 @@ export const useConversationStore = create<ConversationStore & ChatActions>()(
       },
 
       updateLastAgentMessage: (conversationId, event) => {
-        const messages = get().messages[conversationId] || [];
-        const lastMessage = messages[messages.length - 1];
+        if (
+          event.msg.type === "agent_message" ||
+          event.msg.type === "agent_reasoning_raw_content" ||
+          event.msg.type === "task_complete"
+        ) {
+          const messages = get().messages[conversationId] || [];
+          const lastMessage = messages[messages.length - 1];
 
-        if (lastMessage?.role === "assistant") {
-          const existingEvents = lastMessage.events || [];
-          const isDuplicate = existingEvents.some(
-            (e) => JSON.stringify(e.msg) === JSON.stringify(event.msg),
-          );
+          if (lastMessage?.role === "assistant") {
+            const existingEvents = lastMessage.events || [];
+            const isDuplicate = existingEvents.some(
+              (e) => JSON.stringify(e.msg) === JSON.stringify(event.msg),
+            );
 
-          const contentDelta = extractEventContent(event.msg);
-          const newContent = event.msg.type.includes("delta")
-            ? (lastMessage.content || "") + contentDelta
-            : contentDelta || lastMessage.content;
+            const newContent = extractEventContent(event.msg);
 
-          const updatedMessage = {
-            ...lastMessage,
-            content: newContent,
-            events: isDuplicate ? existingEvents : [...existingEvents, event],
-          };
+            const updatedMessage = {
+              ...lastMessage,
+              content: newContent,
+              events: isDuplicate ? existingEvents : [...existingEvents, event],
+            };
 
-          set((state) => ({
-            messages: {
-              ...state.messages,
-              [conversationId]: [...messages.slice(0, -1), updatedMessage],
-            },
-          }));
-        } else {
-          get().addMessage(conversationId, {
-            id: event.id,
-            role: "assistant",
-            content: extractEventContent(event.msg),
-            timestamp: Date.now(),
-            events: [event],
-          });
+            set((state) => ({
+              messages: {
+                ...state.messages,
+                [conversationId]: [...messages.slice(0, -1), updatedMessage],
+              },
+            }));
+          } else {
+            get().addMessage(conversationId, {
+              id: event.id,
+              role: "assistant",
+              content: extractEventContent(event.msg),
+              timestamp: Date.now(),
+              events: [event],
+            });
+          }
         }
       },
 
