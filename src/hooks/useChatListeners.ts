@@ -1,48 +1,31 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useChatStore } from "@/stores/useChatStore";
-import { useSessionStore } from "@/stores/useSessionStore";
-import { useConversationStore } from "@/stores/useConversationStore";
-import { EventMsg } from "@/bindings/EventMsg";
+import { Line } from "@/types";
 
-export function useChatListeners(setIsSending: (value: boolean) => void) {
+export function useChatListeners() {
   const { updateLastAgentMessage } = useChatStore();
-  const { setIsInitializing, setError } = useSessionStore();
 
   useEffect(() => {
     let unlistenEvents: (() => void) | undefined;
-    let unlistenError: (() => void) | undefined;
     let isSetup = false;
 
     const setupListeners = async () => {
       if (isSetup) return;
       isSetup = true;
 
-      unlistenEvents = await listen<[string, string, EventMsg]>(
+      unlistenEvents = await listen<Line>(
         "codex-event",
         (event) => {
-          const [, eventId, eventMsg] = event.payload;
-          const convId = useConversationStore.getState().activeConversationId;
-          
-          if (!eventMsg || typeof eventMsg.type === "undefined") {
-            // console.error("Received malformed codex-event payload:", eventMsg);
-            return;
-          }
+          const params = event.payload.params
+          const { id, msg, conversationId } = params;
+          const convId = conversationId
 
-          if (eventMsg.type !== 'agent_message_delta' && eventMsg.type !== 'agent_reasoning_raw_content_delta') {
-            console.log(`Received codex-event: ${convId}`, eventMsg);
+          if (msg.type !== 'agent_message_delta' && msg.type !== 'agent_reasoning_raw_content_delta') {
+            console.log(`Received codex-event: ${convId} params.id ${id}`, msg);
           }
           if (!convId) return;
-          updateLastAgentMessage(convId, { id: eventId, msg: eventMsg });
-        },
-      );
-
-      unlistenError = await listen<string>(
-        "session_init_failed",
-        ({ payload }) => {
-          setError(`App Server Error: ${payload}`);
-          setIsInitializing(false);
-          setIsSending(false);
+          updateLastAgentMessage(convId, { id, msg: msg });
         },
       );
     };
@@ -51,7 +34,6 @@ export function useChatListeners(setIsSending: (value: boolean) => void) {
 
     return () => {
       if (unlistenEvents) unlistenEvents();
-      if (unlistenError) unlistenError();
     };
   }, []);
 }

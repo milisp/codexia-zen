@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::{collections::HashMap, sync::Arc};
@@ -15,16 +15,30 @@ use codex_app_server_protocol::{
     NewConversationResponse, SendUserMessageParams,
 };
 use codex_protocol::ConversationId;
-use codex_protocol::protocol::{ErrorEvent, Event, EventMsg};
+use codex_protocol::protocol::{ErrorEvent, EventMsg};
 
 use crate::codex_discovery::discover_codex_command;
 
 const CODEX_APP_SERVER_ARGS: &[&str] = &["app-server"];
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Params {
+    pub id: String,
+    pub msg: EventMsg,
+    pub conversation_id: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct Line {
+    pub method: String,
+    pub params: Params,
+}
+
 #[derive(Clone)]
 pub struct CodexClient {
     stdin_tx: mpsc::Sender<String>,
-    event_tx: broadcast::Sender<Event>,
+    event_tx: broadcast::Sender<Line>,
     request_map: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
 }
 
@@ -37,9 +51,9 @@ impl CodexClient {
         tokio::spawn(Self::run_app_server_process(
             stdin_rx,
             event_tx.clone(),
-            request_map.clone(),
             api_key,
             env_key,
+            request_map.clone(),
         ));
 
         Self {
@@ -51,10 +65,10 @@ impl CodexClient {
 
     async fn run_app_server_process(
         mut stdin_rx: mpsc::Receiver<String>,
-        event_tx: broadcast::Sender<Event>,
-        request_map: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
+        event_tx: broadcast::Sender<Line>,
         api_key: String,
         env_key: String,
+        request_map: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
     ) {
         let mut envs = HashMap::new();
         if !api_key.is_empty() {
@@ -68,13 +82,6 @@ impl CodexClient {
             Some(path) => path,
             None => {
                 error!("Failed to discover codex app-server command.");
-                let _ = event_tx.send(Event {
-                    id: Uuid::new_v4().to_string(),
-                    msg: EventMsg::Error(ErrorEvent {
-                        message: "Failed to start codex app-server. No codex binary found."
-                            .to_string(),
-                    }),
-                });
                 return;
             }
         };
@@ -91,11 +98,15 @@ impl CodexClient {
             Err(e) => {
                 error!("Failed to spawn codex app-server: {}", e);
                 // Emit an error event to the frontend
-                let _ = event_tx.send(Event {
-                    id: Uuid::new_v4().to_string(),
-                    msg: EventMsg::Error(ErrorEvent {
-                        message: format!("Failed to start codex app-server. Error: {}", e),
-                    }),
+                let _ = event_tx.send(Line {
+                    method: "error".to_string(),
+                    params: Params {
+                        id: Uuid::new_v4().to_string(),
+                        msg: EventMsg::Error(ErrorEvent {
+                            message: format!("Failed to start codex app-server. Error: {}", e),
+                        }),
+                        conversation_id: "".to_string(),
+                    },
                 });
                 return;
             }
@@ -124,15 +135,10 @@ impl CodexClient {
                                 };
 
                                 if !is_response {
-                                    if let Some(msg) = json_value.pointer("/params/msg") {
-                                        if let Ok(event_msg) = serde_json::from_value::<EventMsg>(msg.clone()) {
-                                            let event_id = Uuid::new_v4().to_string(); // Generate a new ID for notifications
-                                            let _ = event_tx.send(Event { id: event_id, msg: event_msg });
-                                        } else {
-                                            println!("Failed to parse event from msg field: {}", line);
-                                        }
+                                    if let Ok(event_line) = serde_json::from_value::<Line>(json_value.clone()) {
+                                        let _ = event_tx.send(event_line);
                                     } else {
-                                        println!("Received codex-event without msg field: {}", line);
+                                        println!("Failed to parse JSON into Line struct: {}", line);
                                     }
                                 }
                             } else {
@@ -210,7 +216,7 @@ impl CodexClient {
             .map_err(|e| anyhow::anyhow!("Failed to parse app server response result: {}", e))
     }
 
-    pub fn subscribe_to_events(&self) -> broadcast::Receiver<Event> {
+    pub fn subscribe_to_events(&self) -> broadcast::Receiver<Line> {
         self.event_tx.subscribe()
     }
 

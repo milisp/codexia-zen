@@ -5,15 +5,13 @@ import { Message } from "@/types";
 import { EventWithId } from "@/types/Message";
 
 type ChatState = {
-  // Conversations
   conversations: ConversationSummary[];
   activeConversationId: string | null;
-  messages: Record<string, Message[]>; // Store messages per conversationId
+  messages: Record<string, Message[]>;
   currentMessage: string;
 };
 
 type ChatActions = {
-  // Conversations
   setConversations: (conversations: ConversationSummary[]) => void;
   setActiveConversationId: (conversationId: string | null) => void;
   addMessage: (conversationId: string, message: Message) => void;
@@ -22,18 +20,30 @@ type ChatActions = {
   setCurrentMessage: (message: string) => void;
 };
 
+const extractEventContent = (msg: EventMsg): string => {
+  switch (msg.type) {
+    case "agent_message_delta":
+    case "agent_reasoning_raw_content_delta":
+      return msg.delta;
+    case "agent_message":
+      return msg.message;
+    case "agent_reasoning_raw_content":
+      return msg.text;
+    case "task_complete":
+      return msg.last_agent_message || "";
+    default:
+      return "";
+  }
+};
+
 export const useChatStore = create<ChatState & ChatActions>()((set, get) => ({
-  // Initial State
   conversations: [],
   activeConversationId: null,
   messages: {},
-
   currentMessage: "",
 
-  // Actions
   setConversations: (conversations) => set({ conversations }),
-  setActiveConversationId: (conversationId) =>
-    set({ activeConversationId: conversationId }),
+  setActiveConversationId: (conversationId) => set({ activeConversationId: conversationId }),
 
   addMessage: (conversationId, message) => {
     set((state) => ({
@@ -44,74 +54,50 @@ export const useChatStore = create<ChatState & ChatActions>()((set, get) => ({
     }));
   },
 
-  updateLastAgentMessage: (conversationId: string, event: { id: string, msg: EventMsg }) => {
+  updateLastAgentMessage: (conversationId, event) => {
     const messages = get().messages[conversationId] || [];
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === "assistant") {
-        let newContent = lastMessage.content || "";
-        if (event.msg.type === "agent_message_delta") {
-          newContent += event.msg.delta;
-        } else if (event.msg.type === "agent_message") {
-          newContent = event.msg.message;
-        } else if (event.msg.type === "agent_reasoning_raw_content") {
-          newContent = event.msg.text;
-        } else if (event.msg.type === "agent_reasoning_raw_content_delta") {
-          newContent = event.msg.delta;
-        } else if (event.msg.type === "task_complete" && event.msg.last_agent_message) {
-          newContent = event.msg.last_agent_message;
-        }
+    const lastMessage = messages[messages.length - 1];
 
-        const updatedMessage = {
-          ...lastMessage,
-          content: newContent,
-          events: (() => {
-            const existingEvents = lastMessage.events || [];
-            const isDuplicate = existingEvents.some(existingEvent =>
-              JSON.stringify(existingEvent.msg) === JSON.stringify(event.msg)
-            );
-            return isDuplicate ? existingEvents : [...existingEvents, event];
-          })(),
-        };
-        const newMessages = [...messages.slice(0, -1), updatedMessage];
-        set((state) => ({
-          messages: {
-            ...state.messages,
-            [conversationId]: newMessages,
-          },
-        }));
-        return;
-      }
-    }
-    // If no agent message to update, add a new one with the event
-    let initialContent = "";
-    if (event.msg.type === "agent_message_delta") {
-      initialContent = event.msg.delta;
-    } else if (event.msg.type === "agent_reasoning_raw_content_delta") {
-        initialContent = event.msg.delta;
-    } else if (event.msg.type === "agent_reasoning_raw_content") {
-      initialContent = event.msg.text;
-    } else if (event.msg.type === "agent_message") {
-      initialContent = event.msg.message;
-    } else if (event.msg.type === "task_complete" && event.msg.last_agent_message) {
-      initialContent = event.msg.last_agent_message;
-    }
+    if (lastMessage?.role === "assistant") {
+      const existingEvents = lastMessage.events || [];
+      const isDuplicate = existingEvents.some(
+        (e) => JSON.stringify(e.msg) === JSON.stringify(event.msg)
+      );
 
-    get().addMessage(conversationId, {
-      id: event.id,
-      role: "assistant",
-      content: initialContent,
-      timestamp: Date.now(),
-      events: [event],
-    });
+      const contentDelta = extractEventContent(event.msg);
+      const newContent = event.msg.type.includes("delta")
+        ? (lastMessage.content || "") + contentDelta
+        : contentDelta || lastMessage.content;
+
+      const updatedMessage = {
+        ...lastMessage,
+        content: newContent,
+        events: isDuplicate ? existingEvents : [...existingEvents, event],
+      };
+
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [conversationId]: [...messages.slice(0, -1), updatedMessage],
+        },
+      }));
+    } else {
+      get().addMessage(conversationId, {
+        id: event.id,
+        role: "assistant",
+        content: extractEventContent(event.msg),
+        timestamp: Date.now(),
+        events: [event],
+      });
+    }
   },
 
-  clearMessages: (conversationId: string) => {
+  clearMessages: (conversationId) => {
     set((state) => {
-      const newMessages = { ...state.messages };
-      delete newMessages[conversationId];
-      return { messages: newMessages };
+      const { [conversationId]: _, ...rest } = state.messages;
+      return { messages: rest };
     });
   },
+
   setCurrentMessage: (message) => set({ currentMessage: message }),
 }));

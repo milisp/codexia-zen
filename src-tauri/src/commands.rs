@@ -1,6 +1,5 @@
 use codex_app_server_protocol::{InputItem, NewConversationParams, NewConversationResponse};
 use codex_protocol::ConversationId;
-use codex_protocol::protocol::EventMsg::{AgentMessageDelta, AgentReasoningRawContentDelta};
 use tauri::Emitter;
 use tauri_plugin_log::log::{debug, error, info};
 
@@ -64,30 +63,14 @@ pub async fn start_chat_session(
     debug!("Current active sessions : {}", clients_guard.len());
 
     tokio::spawn(async move {
-        while let Ok(event) = event_rx.recv().await {
-            if !matches!(
-                event.msg,
-                AgentMessageDelta(_) | AgentReasoningRawContentDelta(_)
-            ) {
-                info!(
-                    "Emitting codex-event for session_id {}: {:?}",
-                    client_session_id, event
-                );
-            }
-            if let Err(e) = app.emit(
-                "codex-event",
-                (client_session_id.clone(), event.id, event.msg),
-            ) {
+        while let Ok(line_json) = event_rx.recv().await {
+            if let Err(e) = app.emit("codex-event", line_json) {
                 error!(
                     "Failed to emit codex-event for session_id {}: {:?}",
                     client_session_id, e
                 );
             }
         }
-        info!(
-            "Frontend event loop stopped for session_id {}.",
-            client_session_id
-        );
     });
 
     Ok(session_id)

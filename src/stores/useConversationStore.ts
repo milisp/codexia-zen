@@ -2,14 +2,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { ConversationSummary } from "@/bindings/ConversationSummary";
 
-export type Conversation = ConversationSummary & { sessionId: string };
-
 interface ConversationStore {
-  conversationsByCwd: Record<string, Conversation[]>;
+  conversationsByCwd: Record<string, ConversationSummary[]>;
   activeConversationId: string | null;
-  setConversations: (cwd: string, conversations: Conversation[]) => void;
+  setConversations: (cwd: string, conversations: ConversationSummary[]) => void;
   setActiveConversationId: (id: string | null) => void;
-  addConversation: (cwd: string, conversation: Conversation) => void;
+  addConversation: (cwd: string, conversation: ConversationSummary) => void;
 }
 
 export const useConversationStore = create<ConversationStore>()(
