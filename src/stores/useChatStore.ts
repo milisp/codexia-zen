@@ -12,7 +12,7 @@ type ChatState = {
 type ChatActions = {
   addMessage: (conversationId: string, message: Message) => void;
   updateLastAgentMessage: (conversationId: string, event: EventWithId) => void;
-  clearMessages: (conversationId: string) => void;
+  deleteMessages: (conversationId: string) => void;
   setCurrentMessage: (message: string) => void;
 };
 
@@ -88,7 +88,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
         }
       },
 
-      clearMessages: (conversationId) => {
+      deleteMessages: (conversationId) => {
         set((state) => {
           const { [conversationId]: _, ...rest } = state.messages;
           return { messages: rest };

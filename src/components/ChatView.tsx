@@ -16,7 +16,7 @@ export function ChatView() {
   const { messages, currentMessage, setCurrentMessage } = useChatStore();
   const { activeConversationId } = useConversationStore();
   const { isInitializing } = useSessionStore();
-  const { isSending, handleSendMessage } = useChatSession();
+  const { isSending, handleSendMessage, handleNewConversation } = useChatSession();
 
   const activeMessages = messages[activeConversationId || ""] || [];
 
@@ -24,14 +24,15 @@ export function ChatView() {
     chatInputRef.current?.focus();
   };
 
-  const onSendMessage = () => {
-    handleSendMessage(currentMessage);
+  const handleNewConversationAndFocus = async () => {
+    await handleNewConversation();
+    focusChatInput();
   };
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full w-screen">
       <ResizablePanel defaultSize={20}>
-        <ConversationList onClearConversation={focusChatInput} />
+        <ConversationList onNewTempConversation={handleNewConversationAndFocus} />
       </ResizablePanel>
       <ResizableHandle withHandle />
       <ResizablePanel>
@@ -40,7 +41,7 @@ export function ChatView() {
           activeMessages={activeMessages}
           currentMessage={currentMessage}
           setCurrentMessage={setCurrentMessage}
-          handleSendMessage={onSendMessage}
+          handleSendMessage={() => handleSendMessage(currentMessage)}
           isSending={isSending}
           isInitializing={isInitializing}
           inputRef={chatInputRef}

@@ -1,26 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { useConversationStore } from "@/stores/useConversationStore";
-import { useChatStore } from "@/stores/useChatStore";
 import { useCodexStore } from "@/stores/useCodexStore";
 
 interface ConversationListProps {
-  onClearConversation: () => void;
+  onNewTempConversation: () => void;
 }
 
-export function ConversationList({ onClearConversation }: ConversationListProps) {
+export function ConversationList({ onNewTempConversation }: ConversationListProps) {
   const { conversationsByCwd, activeConversationId, setActiveConversationId } = useConversationStore();
   const { cwd } = useCodexStore();
-  const { clearMessages } = useChatStore();
 
   const conversations = conversationsByCwd[cwd || ""] || [];
 
-  const handleClearConversation = () => {
-    if (activeConversationId) {
-      clearMessages(activeConversationId);
-    }
-    setActiveConversationId(null);
-    onClearConversation();
+  const handleNewTempConversation = () => {
+    onNewTempConversation();
   };
 
   return (
@@ -28,7 +22,7 @@ export function ConversationList({ onClearConversation }: ConversationListProps)
       <div className="mb-4">
         <div className="flex items-center justify-between w-full mb-2">
           <h2 className="text-lg font-semibold">History</h2>
-          <Button variant="ghost" size="icon" onClick={handleClearConversation}>
+          <Button variant="ghost" size="icon" onClick={handleNewTempConversation}>
             <Pencil className="h-4 w-4" />
           </Button>
         </div>

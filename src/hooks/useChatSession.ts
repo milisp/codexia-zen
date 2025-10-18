@@ -50,9 +50,10 @@ export function useChatSession() {
     }
   };
 
-  const createNewConversation = async (currentSessionId: string, message: string) => {
+  const createNewConversation = async (currentSessionId: string, message: string): Promise<string | null> => {
     if (!cwd) {
-      throw new Error("Cannot create conversation without active project directory");
+      toast.error("Cannot create conversation without active project directory");
+      return null;
     }
 
     const params = getNewConversationParams(
@@ -70,7 +71,8 @@ export function useChatSession() {
     });
 
     if (!response?.conversationId) {
-      throw new Error("Failed to create conversation");
+      console.error("Failed to create conversation: No conversationId in response");
+      return null;
     }
 
     const newConversation: ConversationSummary = {
@@ -109,6 +111,10 @@ export function useChatSession() {
       let conversationId = activeConversationId;
       if (!conversationId) {
         conversationId = await createNewConversation(currentSessionId, currentMessage);
+        if (!conversationId) {
+          toast.error("Failed to create conversation");
+          return;
+        }
       }
 
       const userMessage: Message = {
@@ -134,9 +140,34 @@ export function useChatSession() {
     }
   };
 
+  const handleNewConversation = async () => {
+    setIsSending(true);
+    try {
+      const currentSessionId = await handleStartSession();
+      if (!currentSessionId) {
+        toast.error("Failed to start session");
+        return;
+      }
+
+      const conversationId = await createNewConversation(currentSessionId, "New Conversation");
+      if (!conversationId) {
+        toast.error("Failed to create conversation");
+        return;
+      }
+      setActiveConversationId(conversationId);
+      setCurrentMessage("");
+    } catch (error) {
+      console.error("Error in handleNewConversation:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to create new conversation");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return {
     isSending,
     handleStartSession,
     handleSendMessage,
+    handleNewConversation,
   };
 }

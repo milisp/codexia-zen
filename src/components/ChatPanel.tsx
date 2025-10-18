@@ -45,7 +45,7 @@ export function ChatPanel({
         <div className="flex-1 mb-2 flex flex-col">
           <ScrollArea className="flex-1">
             <div ref={scrollAreaRef}>
-              {activeConversationId ? (
+              {activeConversationId || activeMessages.length > 0  ? (
                 activeMessages.map((msg, idx) => (
                   <div
                     key={String(msg.id) ?? `msg-${idx}`}
