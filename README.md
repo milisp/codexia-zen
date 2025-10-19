@@ -5,6 +5,8 @@
 
 a minimalist design GUI for OpenAI Codex CLI
 
+![demo](./docs/codexia-zen.png)
+
 > [!TIP]
 > **⭐ Star the repo and follow [milisp](https://github.com/milisp) on Github for more project**.
 
