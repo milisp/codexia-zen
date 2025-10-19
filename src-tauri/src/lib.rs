@@ -35,6 +35,7 @@ pub fn run() {
             commands::send_message,
             commands::new_conversation,
             commands::exec_approval_request,
+            commands::delete_file,
             config::read_codex_config,
         ])
         .run(tauri::generate_context!())

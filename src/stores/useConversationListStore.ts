@@ -8,6 +8,7 @@ interface ConversationListStore {
   setConversations: (cwd: string, conversations: ConversationSummary[]) => void;
   setActiveConversationId: (id: string | null) => void;
   addConversation: (cwd: string, conversation: ConversationSummary) => void;
+  removeConversation: (conversationId: string) => void;
 }
 
 export const useConversationListStore = create<ConversationListStore>()(
@@ -29,6 +30,19 @@ export const useConversationListStore = create<ConversationListStore>()(
             ...state.conversationsByCwd,
             [cwd]: [...(state.conversationsByCwd[cwd] || []), conversation],
           },
+        })),
+      removeConversation: (conversationId) =>
+        set((state) => ({
+          conversationsByCwd: Object.fromEntries(
+            Object.entries(state.conversationsByCwd).map(([cwd, conversations]) => [
+              cwd,
+              conversations.filter((conv) => conv.conversationId !== conversationId),
+            ]),
+          ),
+          activeConversationId:
+            state.activeConversationId === conversationId
+              ? null
+              : state.activeConversationId,
         })),
     }),
     {

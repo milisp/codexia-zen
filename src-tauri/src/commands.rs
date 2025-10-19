@@ -2,6 +2,7 @@ use codex_app_server_protocol::{InputItem, NewConversationParams, NewConversatio
 use codex_protocol::ConversationId;
 use tauri::Emitter;
 use tauri_plugin_log::log::{debug, error, info};
+use tokio::fs;
 
 use crate::codex::CodexClient;
 use crate::state::{AppState, get_client};
@@ -126,6 +127,16 @@ pub async fn new_conversation(
 
     Ok(response)
 }
+
+#[tauri::command]
+pub async fn delete_file(path: String) -> Result<(), String> {
+    info!("Deleting file: {}", path);
+    fs::remove_file(&path)
+        .await
+        .map_err(|e| format!("Failed to delete file {}: {}", path, e))?;
+    Ok(())
+}
+
 
 #[tauri::command]
 pub async fn exec_approval_request(
