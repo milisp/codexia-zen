@@ -37,6 +37,8 @@ codex-app-server-protocol = { git = "https://github.com/openai/codex.git", packa
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 log = "0.4"
+dirs = "6.0.0"
+toml = "0.9.8"
 
 [features]
 # By default we use `custom-protocol` to enable `tauri-plugin-upload`

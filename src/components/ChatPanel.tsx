@@ -34,18 +34,19 @@ export function ChatPanel({
         behavior: "smooth",
       });
     }
-  }, [activeMessages.length, activeMessages[activeMessages.length - 1]?.content, activeMessages[activeMessages.length - 1]?.events?.length]);
+  }, [
+    activeMessages.length,
+    activeMessages[activeMessages.length - 1]?.content,
+    activeMessages[activeMessages.length - 1]?.events?.length,
+  ]);
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b p-2">
-        <h1 className="text-xl font-bold">Chat</h1>
-      </header>
       <main className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
         <div className="flex-1 mb-2 flex flex-col">
           <ScrollArea className="flex-1">
             <div ref={scrollAreaRef}>
-              {activeConversationId || activeMessages.length > 0  ? (
+              {activeConversationId || activeMessages.length > 0 ? (
                 activeMessages.map((msg, idx) => (
                   <div
                     key={String(msg.id) ?? `msg-${idx}`}
@@ -67,7 +68,9 @@ export function ChatPanel({
                           )}
                         </div>
                       ) : (
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        <p className="text-sm whitespace-pre-wrap">
+                          {msg.content}
+                        </p>
                       )}
                     </div>
                   </div>

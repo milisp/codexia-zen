@@ -7,16 +7,18 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import { ConversationList } from "./ConversationList";
-import { ChatPanel } from "./ChatPanel";
+import { ConversationList } from "@/components/ConversationList";
+import { ChatPanel } from "@/components/ChatPanel";
 import { useChatSession } from "@/hooks/useChatSession";
 
-export function ChatView() {
+export default function ChatPage() {
   const chatInputRef = useRef<HTMLInputElement>(null);
-  const { messages, currentMessage, setCurrentMessage } = useConversationStore();
+  const { messages, currentMessage, setCurrentMessage } =
+    useConversationStore();
   const { activeConversationId } = useConversationListStore();
   const { isInitializing } = useSessionStore();
-  const { isSending, handleSendMessage, handleNewConversation } = useChatSession();
+  const { isSending, handleSendMessage, handleNewConversation } =
+    useChatSession();
 
   const activeMessages = messages[activeConversationId || ""] || [];
 
@@ -32,7 +34,9 @@ export function ChatView() {
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full w-screen">
       <ResizablePanel defaultSize={20}>
-        <ConversationList onNewTempConversation={handleNewConversationAndFocus} />
+        <ConversationList
+          onNewTempConversation={handleNewConversationAndFocus}
+        />
       </ResizablePanel>
       <ResizableHandle withHandle />
       <ResizablePanel>

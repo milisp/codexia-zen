@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 
 mod codex;
 mod codex_discovery;
+mod config;
 mod commands;
 mod export_bindings;
 mod state;
@@ -34,6 +35,7 @@ pub fn run() {
             commands::send_message,
             commands::new_conversation,
             commands::exec_approval_request,
+            config::read_codex_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
