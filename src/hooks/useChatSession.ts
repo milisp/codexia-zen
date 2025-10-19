@@ -17,10 +17,14 @@ import { mapProviderToEnvKey } from "@/utils/mapProviderEnvKey";
 import { ConversationSummary } from "@/bindings/ConversationSummary";
 
 export function useChatSession() {
-  const { addMessage, setCurrentMessage } = useConversationStore();
-  const { activeConversationId, setActiveConversationId, addConversation } = useConversationListStore();
-  const { sessionId, setSessionId, setSessionActive, setIsInitializing } = useSessionStore();
-  const { providers, selectedProviderId, selectedModel, reasoningEffort } = useProviderStore();
+  const { addMessage, setCurrentMessage } =
+    useConversationStore();
+  const { activeConversationId, setActiveConversationId, addConversation } =
+    useConversationListStore();
+  const { sessionId, setSessionId, setSessionActive, setIsInitializing } =
+    useSessionStore();
+  const { providers, selectedProviderId, selectedModel, reasoningEffort } =
+    useProviderStore();
   const provider = providers.find((p) => p.id === selectedProviderId);
   const { cwd } = useCodexStore();
   const { mode, approvalPolicy } = useSandboxStore();
@@ -29,10 +33,10 @@ export function useChatSession() {
 
   const handleStartSession = async () => {
     if (sessionId) return sessionId;
-    
+
     setIsInitializing(true);
     const uuid = v4();
-    
+
     try {
       await invoke("start_chat_session", {
         sessionId: uuid,
@@ -50,9 +54,14 @@ export function useChatSession() {
     }
   };
 
-  const createNewConversation = async (currentSessionId: string, message: string): Promise<string | null> => {
+  const createNewConversation = async (
+    currentSessionId: string,
+    message: string,
+  ): Promise<string | null> => {
     if (!cwd) {
-      toast.error("Cannot create conversation without active project directory");
+      toast.error(
+        "Cannot create conversation without active project directory",
+      );
       return null;
     }
 
@@ -62,7 +71,7 @@ export function useChatSession() {
       cwd,
       approvalPolicy,
       mode,
-      { model_reasoning_effort: reasoningEffort }
+      { model_reasoning_effort: reasoningEffort },
     );
 
     const response = await invoke<NewConversationResponse>("new_conversation", {
@@ -71,7 +80,9 @@ export function useChatSession() {
     });
 
     if (!response?.conversationId) {
-      console.error("Failed to create conversation: No conversationId in response");
+      console.error(
+        "Failed to create conversation: No conversationId in response",
+      );
       return null;
     }
 
@@ -84,7 +95,7 @@ export function useChatSession() {
 
     addConversation(cwd, newConversation);
     setActiveConversationId(response.conversationId);
-    
+
     return response.conversationId;
   };
 
@@ -92,7 +103,7 @@ export function useChatSession() {
     if (isSending || !currentMessage.trim()) return;
 
     setIsSending(true);
-    
+
     try {
       let currentSessionId = sessionId;
       if (!activeConversationId) {
@@ -110,7 +121,10 @@ export function useChatSession() {
 
       let conversationId = activeConversationId;
       if (!conversationId) {
-        conversationId = await createNewConversation(currentSessionId, currentMessage);
+        conversationId = await createNewConversation(
+          currentSessionId,
+          currentMessage,
+        );
         if (!conversationId) {
           toast.error("Failed to create conversation");
           return;
@@ -134,34 +148,18 @@ export function useChatSession() {
       });
     } catch (error) {
       console.error("Error in handleSendMessage:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to send message");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send message",
+      );
     } finally {
       setIsSending(false);
     }
   };
 
-  const handleNewConversation = async () => {
-    setIsSending(true);
-    try {
-      const currentSessionId = await handleStartSession();
-      if (!currentSessionId) {
-        toast.error("Failed to start session");
-        return;
-      }
-
-      const conversationId = await createNewConversation(currentSessionId, "New Conversation");
-      if (!conversationId) {
-        toast.error("Failed to create conversation");
-        return;
-      }
-      setActiveConversationId(conversationId);
-      setCurrentMessage("");
-    } catch (error) {
-      console.error("Error in handleNewConversation:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to create new conversation");
-    } finally {
-      setIsSending(false);
-    }
+  const handleNewConversation = () => {
+    // Do not start session or create conversation here
+    setActiveConversationId(null);
+    setCurrentMessage("");
   };
 
   return {

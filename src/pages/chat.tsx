@@ -26,8 +26,8 @@ export default function ChatPage() {
     chatInputRef.current?.focus();
   };
 
-  const handleNewConversationAndFocus = async () => {
-    await handleNewConversation();
+  const handleNewConversationAndFocus = () => {
+    handleNewConversation();
     focusChatInput();
   };
 
