@@ -83,7 +83,8 @@ export function ChatPanel({
             </div>
           </ScrollArea>
         </div>
-        <div className="flex-none">
+      </main>
+        <div className="sticky bottom-0 left-0 right-0 bg-background border-t">
           <ChatCompose
             currentMessage={currentMessage}
             setCurrentMessage={setCurrentMessage}
@@ -93,7 +94,6 @@ export function ChatPanel({
             inputRef={inputRef}
           />
         </div>
-      </main>
     </div>
   );
 }
