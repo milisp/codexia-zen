@@ -18,7 +18,7 @@ export function ConversationList({ onNewTempConversation }: ConversationListProp
   const { conversationsByCwd, activeConversationId, setActiveConversationId } = useConversationListStore();
   const { cwd } = useCodexStore();
 
-  const conversations = conversationsByCwd[cwd || ""] || [];
+  const conversations = (conversationsByCwd[cwd || ""] || []).slice().reverse();
 
   const handleNewTempConversation = () => {
     onNewTempConversation();
