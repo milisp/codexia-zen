@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useConversationStore } from "@/stores/useConversationStore";
+import { useTaskStore } from "@/stores/useTaskStore";
 import { Line } from "@/types";
 
 export function useChatListeners() {
   const { updateLastAgentMessage } = useConversationStore();
+  const { setTaskStartTime, setTaskEndTime } = useTaskStore();
 
   useEffect(() => {
     let unlistenEvents: (() => void) | undefined;
@@ -17,11 +19,20 @@ export function useChatListeners() {
       unlistenEvents = await listen<Line>(
         "codex-event",
         (event) => {
-          const params = event.payload.params
+          const params = event.payload.params;
           const { id, msg, conversationId } = params;
-          const convId = conversationId
+          const convId = conversationId;
 
-          if (msg.type !== 'agent_message_delta' && msg.type !== 'agent_reasoning_raw_content_delta') {
+          if (msg.type === "task_started") {
+            setTaskStartTime(Date.now());
+          } else if (msg.type === "task_complete") {
+            setTaskEndTime(Date.now());
+          }
+
+          if (
+            msg.type !== "agent_message_delta" &&
+            msg.type !== "agent_reasoning_raw_content_delta"
+          ) {
             console.log(`Received codex-event: ${convId} params.id ${id}`, msg);
           }
           if (!convId) return;
@@ -35,5 +46,5 @@ export function useChatListeners() {
     return () => {
       if (unlistenEvents) unlistenEvents();
     };
-  }, []);
+  }, [setTaskStartTime, setTaskEndTime, updateLastAgentMessage]);
 }

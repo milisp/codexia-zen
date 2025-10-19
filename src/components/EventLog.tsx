@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "./ui/button";
 import { useSessionStore } from "@/stores/useSessionStore";
+import { useTaskStore } from "@/stores/useTaskStore";
 import { EventWithId } from "@/types/Message";
 import { v4 } from "uuid";
 
@@ -18,6 +19,7 @@ interface EventLogProps {
 const EventLog: React.FC<EventLogProps> = ({ events }) => {
   const commandMap = new Map<string, string>();
   const { sessionId } = useSessionStore();
+  const { taskDuration } = useTaskStore();
 
   const [agentMessageDeltas, setAgentMessageDeltas] = useState<
     Record<string, string>
@@ -123,9 +125,6 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
 
   const renderEvent = (event: EventWithId): JSX.Element | null => {
     switch (event.msg.type) {
-      case "task_started":
-        return <div className="text-sm text-gray-500">🚀 Task started</div>;
-
       case "agent_message_delta": {
         const text = agentMessageDeltas[event.id] || "";
         return <div className="text-sm my-1">🤖 {text}</div>;
@@ -210,6 +209,8 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
           </div>
         );
 
+      case "task_started":
+      case "task_complete":
       case "exec_command_begin":
       case "exec_command_output_delta":
       case "token_count":
@@ -234,11 +235,6 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
       case "error":
         return <div className="text-xs text-red-400">{event.msg.message}</div>;
 
-      case "task_complete":
-        return (
-          <div className="text-sm my-1">🤖 {event.msg.last_agent_message}</div>
-        );
-
       default:
         return (
           <div className="text-xs text-gray-400">
@@ -250,10 +246,13 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
 
   return (
     <div className="space-y-2">
-      {events.map((event) => (
-        <div key={event.id + event.msg.type + v4()}>
-          {renderEvent(event)}
+      {taskDuration !== null && (
+        <div className="text-sm text-gray-600 mb-2">
+          Task Duration: {taskDuration.toFixed(2)} seconds
         </div>
+      )}
+      {events.map((event) => (
+        <div key={event.id + event.msg.type + v4()}>{renderEvent(event)}</div>
       ))}
     </div>
   );

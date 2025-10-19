@@ -22,8 +22,6 @@ const extractEventContent = (msg: EventMsg): string => {
       return msg.message;
     case "agent_reasoning_raw_content":
       return msg.text;
-    case "task_complete":
-      return msg.last_agent_message || "";
     default:
       return "";
   }
@@ -50,8 +48,7 @@ export const useConversationStore = create<ConversationStore & ChatActions>()(
       updateLastAgentMessage: (conversationId, event) => {
         if (
           event.msg.type === "agent_message" ||
-          event.msg.type === "agent_reasoning_raw_content" ||
-          event.msg.type === "task_complete"
+          event.msg.type === "agent_reasoning_raw_content"
         ) {
           const messages = get().messages[conversationId] || [];
           const lastMessage = messages[messages.length - 1];
