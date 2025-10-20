@@ -29,13 +29,18 @@ export function useChatListeners() {
             setTaskEndTime(Date.now());
           }
 
+          // Skip storing streaming delta events; they are rendered directly in EventLog.
           if (
-            msg.type !== "agent_message_delta" &&
-            msg.type !== "agent_reasoning_raw_content_delta"
+            msg.type === "agent_message_delta" ||
+            msg.type === "agent_reasoning_raw_content_delta"
           ) {
-            console.log(`Received codex-event: ${convId} params.id ${id}`, msg);
+            // Do not persist deltas to the conversation store.
+            return;
           }
+
           if (!convId) return;
+          // Log non‑delta events for debugging.
+          console.log(`Received codex-event: ${convId} params.id ${id}`, msg);
           updateLastAgentMessage(convId, { id, msg: msg });
         },
       );
