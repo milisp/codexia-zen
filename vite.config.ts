@@ -32,7 +32,13 @@ export default defineConfig(async () => ({
       : undefined,
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**", "**/codex/**", "**/codexia/**", "**/vibe-kanban/**"],
+      ignored: [
+        "**/src-tauri/**",
+        "**/src/bindings/**",
+        "**/codex/**",
+        "**/codexia/**",
+        "**/vibe-kanban/**",
+      ],
     },
-  }
+  },
 }));
