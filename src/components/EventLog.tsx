@@ -7,10 +7,8 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 import { Button } from "./ui/button";
-import { useSessionStore } from "@/stores/useSessionStore";
 import { useTaskStore } from "@/stores/useTaskStore";
 import { EventWithId } from "@/types/Message";
-import { v4 } from "uuid";
 
 interface EventLogProps {
   events: EventWithId[];
@@ -18,7 +16,6 @@ interface EventLogProps {
 
 const EventLog: React.FC<EventLogProps> = ({ events }) => {
   const commandMap = new Map<string, string>();
-  const { sessionId } = useSessionStore();
   const { taskDuration } = useTaskStore();
 
   const [agentMessageDeltas, setAgentMessageDeltas] = useState<
@@ -94,14 +91,12 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
 
   const handleApproval = async (request_id: number, approved: boolean) => {
     console.log(
-      "exec_approval_request sessionId",
-      sessionId,
+      "exec_approval_request",
       request_id,
       approved,
     );
     try {
       await invoke("exec_approval_request", {
-        sessionId: sessionId,
         requestId: request_id,
         decision: approved,
       });
@@ -252,7 +247,7 @@ const EventLog: React.FC<EventLogProps> = ({ events }) => {
         </div>
       )}
       {events.map((event) => (
-        <div key={event.id + event.msg.type + v4()}>{renderEvent(event)}</div>
+        <div key={event.id + event.msg.type + Math.random()}>{renderEvent(event)}</div>
       ))}
     </div>
   );

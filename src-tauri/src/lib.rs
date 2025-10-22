@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_log::log;
@@ -25,7 +24,7 @@ pub fn run() {
             export_bindings::export_ts_types();
 
             app.manage(state::AppState {
-                clients: Arc::new(Mutex::new(HashMap::new())),
+                client: Arc::new(Mutex::new(None)),
             });
 
             Ok(())

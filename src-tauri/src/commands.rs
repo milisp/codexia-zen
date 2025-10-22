@@ -1,7 +1,7 @@
 use codex_app_server_protocol::{InputItem, NewConversationParams, NewConversationResponse};
 use codex_protocol::ConversationId;
 use tauri::Emitter;
-use tauri_plugin_log::log::{debug, error, info};
+use tauri_plugin_log::log::{error, info};
 use tokio::fs;
 
 use crate::codex::CodexClient;
@@ -9,82 +9,57 @@ use crate::state::{AppState, get_client};
 
 #[tauri::command]
 pub async fn start_chat_session(
-    session_id: String,
     api_key: String,
     env_key: String,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-) -> Result<String, String> {
-    let mut clients_guard = state.clients.lock().await;
+) -> Result<(), String> {
+    let mut client_guard = state.client.lock().await;
 
-    if clients_guard.contains_key(&session_id) {
-        return Ok(session_id);
+    if client_guard.is_some() {
+        info!("CodexClient already initialized.");
+        return Ok(());
     }
 
-    info!(
-        "Initializing new chat session for session_id {}...",
-        session_id
-    );
+    info!("Initializing CodexClient...");
 
     let client = CodexClient::new(api_key, env_key);
     let mut event_rx = client.subscribe_to_events();
-    let client_session_id = session_id.clone();
 
     let init_result = client.initialize().await;
     match init_result {
         Ok(response) => {
-            if let Err(e) = app.emit(
-                "app_server_initialized",
-                (client_session_id.clone(), response),
-            ) {
-                error!(
-                    "Failed to emit app_server_initialized for session_id {}: {:?}",
-                    client_session_id, e
-                );
+            if let Err(e) = app.emit("app_server_initialized", response) {
+                error!("Failed to emit app_server_initialized: {:?}", e);
             }
         }
         Err(e) => {
-            error!(
-                "Failed to initialize app server for session_id {}: {:?}",
-                session_id, e
-            );
-            let _ = app.emit(
-                "session_init_failed",
-                (client_session_id.clone(), e.to_string()),
-            );
-            return Err(format!(
-                "Failed to initialize app server for session_id {}: {}",
-                session_id, e
-            ));
+            error!("Failed to initialize app server: {:?}", e);
+            let _ = app.emit("session_init_failed", e.to_string());
+            return Err(format!("Failed to initialize app server: {}", e));
         }
     }
 
-    clients_guard.insert(session_id.clone(), client);
-
-    debug!("Current active sessions : {}", clients_guard.len());
+    *client_guard = Some(client);
 
     tokio::spawn(async move {
         while let Ok(line_json) = event_rx.recv().await {
             if let Err(e) = app.emit("codex-event", line_json) {
-                error!(
-                    "Failed to emit codex-event for session_id {}: {:?}",
-                    client_session_id, e
-                );
+                error!("Failed to emit codex-event: {:?}", e);
             }
         }
     });
 
-    Ok(session_id)
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn send_message(
-    session_id: String,
     conversation_id: String,
     items: Vec<InputItem>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let client = get_client(&state, &session_id).await?;
+    let client = get_client(&state).await?;
     info!("Sending message to conversation ID: {}", conversation_id);
     client
         .send_user_message(
@@ -98,11 +73,10 @@ pub async fn send_message(
 
 #[tauri::command]
 pub async fn new_conversation(
-    session_id: String,
     params: NewConversationParams,
     state: tauri::State<'_, AppState>,
 ) -> Result<NewConversationResponse, String> {
-    let client = get_client(&state, &session_id).await?;
+    let client = get_client(&state).await?;
     info!("{:?}", params);
     let response = client.new_conversation(params).await.map_err(|e| {
         error!(
@@ -140,12 +114,11 @@ pub async fn delete_file(path: String) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn exec_approval_request(
-    session_id: String,
     request_id: i64,
     decision: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let client = get_client(&state, &session_id).await?;
+    let client = get_client(&state).await?;
     info!(
         "Sending exec approval response for request ID: {}",
         request_id

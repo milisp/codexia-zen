@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useChatListeners } from "./useChatListeners";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
-import { v4 } from "uuid";
 import { useConversationStore } from "@/stores/useConversationStore";
 import { useProviderStore } from "@/stores/useProviderStore";
 import { useSessionStore } from "@/stores/useSessionStore";
@@ -21,7 +20,7 @@ export function useChatSession() {
     useConversationStore();
   const { activeConversationId, setActiveConversationId, addConversation } =
     useConversationListStore();
-  const { sessionId, setSessionId, setSessionActive, setIsInitializing } =
+  const { setSessionActive, setIsInitializing } =
     useSessionStore();
   const { providers, selectedProviderId, selectedModel, reasoningEffort } =
     useProviderStore();
@@ -32,30 +31,24 @@ export function useChatSession() {
   useChatListeners();
 
   const handleStartSession = async () => {
-    if (sessionId) return sessionId;
-
     setIsInitializing(true);
-    const uuid = v4();
 
     try {
       await invoke("start_chat_session", {
-        sessionId: uuid,
         apiKey: provider?.apiKey ?? "",
         envKey: mapProviderToEnvKey(provider?.id),
       });
       setSessionActive(true);
-      setSessionId(uuid);
-      return uuid;
+      return true;
     } catch (error) {
       console.error("Failed to start session:", error);
-      return null;
+      return false;
     } finally {
       setIsInitializing(false);
     }
   };
 
   const createNewConversation = async (
-    currentSessionId: string,
     message: string,
   ): Promise<string | null> => {
     if (!cwd) {
@@ -75,7 +68,6 @@ export function useChatSession() {
     );
 
     const response = await invoke<NewConversationResponse>("new_conversation", {
-      sessionId: currentSessionId,
       params,
     });
 
@@ -105,24 +97,17 @@ export function useChatSession() {
     setIsSending(true);
 
     try {
-      let currentSessionId = sessionId;
       if (!activeConversationId) {
-        currentSessionId = await handleStartSession();
-        if (!currentSessionId) {
+        const sessionStarted = await handleStartSession();
+        if (!sessionStarted) {
           toast.error("Failed to start session");
           return;
         }
       }
 
-      if (!currentSessionId) {
-        toast.error("No active session");
-        return;
-      }
-
       let conversationId = activeConversationId;
       if (!conversationId) {
         conversationId = await createNewConversation(
-          currentSessionId,
           currentMessage,
         );
         if (!conversationId) {
@@ -142,7 +127,6 @@ export function useChatSession() {
       setCurrentMessage("");
 
       await invoke("send_message", {
-        sessionId: currentSessionId,
         conversationId,
         items: [{ type: "text", data: { text: currentMessage } } as InputItem],
       });

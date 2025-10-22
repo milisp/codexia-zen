@@ -1,20 +1,18 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::codex::CodexClient;
 
 pub struct AppState {
-    pub clients: Arc<Mutex<HashMap<String, CodexClient>>>,
+    pub client: Arc<Mutex<Option<CodexClient>>>,
 }
 
 pub async fn get_client(
     state: &tauri::State<'_, AppState>,
-    session_id: &str,
 ) -> Result<CodexClient, String> {
-    let clients_guard = state.clients.lock().await;
-    clients_guard
-        .get(session_id)
+    let client_guard = state.client.lock().await;
+    client_guard
+        .as_ref()
         .cloned()
-        .ok_or_else(|| format!("Client for session_id '{}' not found.", session_id))
+        .ok_or_else(|| "CodexClient not initialized.".to_string())
 }
