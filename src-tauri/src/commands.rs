@@ -23,7 +23,9 @@ pub async fn start_conversation(
 
     info!("Initializing CodexClient...");
 
-    let client = CodexClient::new(api_key, env_key);
+    let client = CodexClient::new(api_key, env_key)
+        .await
+        .map_err(|e| format!("Failed to create CodexClient: {}", e))?;
     let mut event_rx = client.subscribe_to_events();
 
     let init_result = client.initialize().await;
@@ -43,8 +45,8 @@ pub async fn start_conversation(
     *client_guard = Some(client);
 
     tokio::spawn(async move {
-        while let Ok(line_json) = event_rx.recv().await {
-            if let Err(e) = app.emit("codex-event", line_json) {
+        while let Ok(notification) = event_rx.recv().await {
+            if let Err(e) = app.emit("codex-event", notification) {
                 error!("Failed to emit codex-event: {:?}", e);
             }
         }
