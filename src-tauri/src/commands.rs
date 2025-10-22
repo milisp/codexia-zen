@@ -8,7 +8,7 @@ use crate::codex::CodexClient;
 use crate::state::{AppState, get_client};
 
 #[tauri::command]
-pub async fn start_chat_session(
+pub async fn start_conversation(
     api_key: String,
     env_key: String,
     app: tauri::AppHandle,

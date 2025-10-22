@@ -34,7 +34,7 @@ export function useChatSession() {
     setIsInitializing(true);
 
     try {
-      await invoke("start_chat_session", {
+      await invoke("start_conversation", {
         apiKey: provider?.apiKey ?? "",
         envKey: mapProviderToEnvKey(provider?.id),
       });
