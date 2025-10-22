@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import { ChatCompose } from "@/components/ChatCompose";
 import DeltaEventLog from "@/components/DeltaEventLog";
@@ -13,7 +13,8 @@ interface ChatPanelProps {
   handleSendMessage: () => void;
   isSending: boolean;
   isInitializing: boolean;
-  textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
+  canCompose: boolean;
+  textAreaRef: RefObject<HTMLTextAreaElement | null>;
 }
 
 function renderEventSummary(event: ConversationEvent): string | null {
@@ -44,6 +45,7 @@ export function ChatPanel({
   handleSendMessage,
   isSending,
   isInitializing,
+  canCompose,
   textAreaRef,
 }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -55,9 +57,13 @@ export function ChatPanel({
   }, [events, deltaEvents]);
 
   const composerDisabled =
-    isInitializing || !conversationId || isSending;
+    isInitializing || isSending || !canCompose;
 
   const hasContent = events.length > 0 || deltaEvents.length > 0;
+  const shouldShowEmptyState = !conversationId || !hasContent;
+  const emptyStateMessage = canCompose
+    ? "Send a message to start the conversation."
+    : "Choose a project before starting a conversation.";
 
   return (
     <div className="flex h-full flex-col">
@@ -65,13 +71,9 @@ export function ChatPanel({
         ref={scrollRef}
         className="flex-1 space-y-4 overflow-y-auto px-6 py-4"
       >
-        {!conversationId ? (
+        {shouldShowEmptyState ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Choose a project and start a conversation to begin chatting.
-          </div>
-        ) : !hasContent ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Send a message to start the conversation.
+            {emptyStateMessage}
           </div>
         ) : (
           <>

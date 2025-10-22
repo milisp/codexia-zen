@@ -1,12 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-export interface ConversationSummary {
-  conversationId: string;
-  preview: string;
-  path?: string | null;
-  timestamp?: string | null;
-}
+import type { ConversationSummary } from "@/bindings/ConversationSummary";
 
 interface ConversationListState {
   conversationsByCwd: Record<string, ConversationSummary[]>;
@@ -18,7 +12,6 @@ interface ConversationListActions {
   setActiveConversationId: (conversationId: string | null) => void;
   addConversation: (cwd: string, summary: ConversationSummary) => void;
   updateConversationPreview: (conversationId: string, preview: string) => void;
-  updateConversationPath: (conversationId: string, path: string | null) => void;
   removeConversation: (conversationId: string) => void;
   reset: () => void;
 }
@@ -41,12 +34,20 @@ export const useConversationListStore = create<
           const index = existingList.findIndex(
             (item) => item.conversationId === summary.conversationId,
           );
+          const existingItem = index >= 0 ? existingList[index] : null;
+          const summaryWithTimestamp: ConversationSummary = {
+            ...summary,
+            timestamp:
+              summary.timestamp ??
+              existingItem?.timestamp ??
+              new Date().toISOString(),
+          };
           const nextList =
             index >= 0
               ? existingList.map((item, idx) =>
-                  idx === index ? { ...item, ...summary } : item,
+                  idx === index ? { ...item, ...summaryWithTimestamp } : item,
                 )
-              : [...existingList, summary];
+              : [...existingList, summaryWithTimestamp];
 
           return {
             conversationsByCwd: {
@@ -55,7 +56,7 @@ export const useConversationListStore = create<
             },
             conversationIndex: {
               ...state.conversationIndex,
-              [summary.conversationId]: cwd,
+              [summaryWithTimestamp.conversationId]: cwd,
             },
           };
         }),
@@ -68,25 +69,6 @@ export const useConversationListStore = create<
           const nextList = list.map((item) =>
             item.conversationId === conversationId
               ? { ...item, preview }
-              : item,
-          );
-          return {
-            conversationsByCwd: {
-              ...state.conversationsByCwd,
-              [cwd]: nextList,
-            },
-          };
-        });
-      },
-
-      updateConversationPath: (conversationId, path) => {
-        const cwd = get().conversationIndex[conversationId];
-        if (!cwd) return;
-        set((state) => {
-          const list = state.conversationsByCwd[cwd] ?? [];
-          const nextList = list.map((item) =>
-            item.conversationId === conversationId
-              ? { ...item, path }
               : item,
           );
           return {
