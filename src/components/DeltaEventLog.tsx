@@ -54,17 +54,17 @@ const DeltaEventLog: React.FC<DeltaEventLogProps> = ({ events }) => {
 
   return (
     <div className="space-y-2">
-  {Object.entries(fullMessageDeltas).map(([id, txt]) => (
-    <span key={id} className="text-sm my-1">
-      {txt}
-    </span>
-  ))}
-  {Object.entries(fullReasoningDeltas).map(([id, txt]) => (
-    <span key={id} className="text-xs text-muted-foreground my-1 block">
-      {txt}
-    </span>
-  ))}
-</div>
+      {Object.entries(fullMessageDeltas).map(([id, txt]) => (
+        <span key={id} className="text-sm my-1">
+          {txt}
+        </span>
+      ))}
+      {Object.entries(fullReasoningDeltas).map(([id, txt]) => (
+        <span key={id} className="text-xs text-muted-foreground my-1">
+          {txt}
+        </span>
+      ))}
+    </div>
   );
 };
 

@@ -33,6 +33,7 @@ pub fn run() {
             commands::initialize_codex,
             commands::new_conversation,
             commands::send_user_message,
+            commands::respond_exec_command_request,
             commands::delete_file,
             config::read_codex_config,
         ])

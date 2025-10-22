@@ -5,6 +5,7 @@ use codex_app_server_protocol::{
     AddConversationListenerParams, NewConversationParams, NewConversationResponse,
     SendUserMessageParams, SendUserMessageResponse,
 };
+use codex_protocol::protocol::ReviewDecision;
 use log::{error, info, warn};
 use tauri::{AppHandle, State};
 
@@ -27,10 +28,7 @@ pub async fn new_conversation(
     state: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> Result<NewConversationResponse, String> {
-    info!(
-        "Creating new conversation; model={:?} cwd={:?}",
-        params.model, params.cwd
-    );
+    info!("Creating new conversation; params {:?} ", params);
     let client = get_or_init_client(&state, &app_handle).await?;
     match client.new_conversation(params).await {
         Ok(conversation) => {
@@ -99,6 +97,20 @@ pub async fn send_user_message(
 }
 
 #[tauri::command]
+pub async fn respond_exec_command_request(
+    request_token: String,
+    decision: String,
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    let client = get_or_init_client(&state, &app_handle).await?;
+    let parsed = parse_review_decision(&decision)?;
+    client
+        .respond_exec_command_request(&request_token, parsed)
+        .await
+}
+
+#[tauri::command]
 pub async fn delete_file(path: String) -> Result<(), String> {
     let trimmed = path.trim();
     if trimmed.is_empty() {
@@ -137,4 +149,15 @@ async fn get_or_init_client(
     }
     *guard = Some(client.clone());
     Ok(client)
+}
+
+fn parse_review_decision(decision: &str) -> Result<ReviewDecision, String> {
+    let normalized = decision.trim().to_lowercase().replace('-', "_");
+    match normalized.as_str() {
+        "approved" => Ok(ReviewDecision::Approved),
+        "approved_for_session" => Ok(ReviewDecision::ApprovedForSession),
+        "denied" => Ok(ReviewDecision::Denied),
+        "abort" => Ok(ReviewDecision::Abort),
+        other => Err(format!("Unsupported review decision: {other}")),
+    }
 }

@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 
 import { ConversationList } from "@/components/ConversationList";
 import { ChatPanel } from "@/components/ChatPanel";
 import { getNewConversationParams } from "@/components/config/ConversationParams";
-import { toast } from "@/components/ui/use-toast";
 import { useConversationStore } from "@/stores/useConversationStore";
 import { useConversationListStore } from "@/stores/useConversationListStore";
 import { useSessionStore } from "@/stores/useSessionStore";
@@ -13,6 +11,7 @@ import { useProviderStore } from "@/stores/useProviderStore";
 import { useSandboxStore } from "@/stores/useSandboxStore";
 import { useCodexStore } from "@/stores/useCodexStore";
 import { useCodexEvents } from "@/hooks/useCodexEvents";
+import { useCodexApprovalRequests } from "@/hooks/useCodexApprovalRequests";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -47,15 +46,7 @@ export default function ChatPage() {
     null,
   );
 
-  const eventsByConversation = useConversationStore(
-    (state) => state.eventsByConversation,
-  );
-  const currentMessage = useConversationStore((state) => state.currentMessage);
-  const setCurrentMessage = useConversationStore(
-    (state) => state.setCurrentMessage,
-  );
-  const appendEvent = useConversationStore((state) => state.appendEvent);
-  const replaceEvents = useConversationStore((state) => state.replaceEvents);
+  const {eventsByConversation, appendEvent, replaceEvents, currentMessage, setCurrentMessage} = useConversationStore();
 
   const {
     activeConversationId,
@@ -63,10 +54,7 @@ export default function ChatPage() {
     addConversation,
   } = useConversationListStore();
 
-  const isInitializing = useSessionStore((state) => state.isInitializing);
-  const isSending = useSessionStore((state) => state.isSending);
-  const setIsInitializing = useSessionStore((state) => state.setIsInitializing);
-  const setIsSending = useSessionStore((state) => state.setIsSending);
+  const {isInitializing, isSending, setIsInitializing, setIsSending } = useSessionStore();
 
   const {
     providers,
@@ -85,6 +73,8 @@ export default function ChatPage() {
     setIsSending,
     isInitializing,
   });
+
+  useCodexApprovalRequests();
 
   const ensureCodexInitialized = useCallback(async () => {
     if (codexInitializedRef.current) {
@@ -118,9 +108,20 @@ export default function ChatPage() {
     return eventsByConversation[activeConversationId] ?? [];
   }, [eventsByConversation, activeConversationId]);
 
+  const activeDeltaEventsRef = useRef<EventWithId[]>([]);
+
   const activeDeltaEvents: EventWithId[] = useMemo(() => {
     if (!activeConversationId) return [];
-    return deltaEventMap[activeConversationId] ?? [];
+    const newDeltaEvents = deltaEventMap[activeConversationId] ?? [];
+
+    // Deep compare newDeltaEvents with the current value in the ref
+    // If they are deeply equal, return the ref's current value to maintain referential stability
+    if (JSON.stringify(newDeltaEvents) === JSON.stringify(activeDeltaEventsRef.current)) {
+      return activeDeltaEventsRef.current;
+    }
+
+    activeDeltaEventsRef.current = newDeltaEvents;
+    return newDeltaEvents;
   }, [deltaEventMap, activeConversationId]);
 
   const createConversation = useCallback(async (): Promise<string | null> => {
@@ -160,7 +161,7 @@ export default function ChatPage() {
         const conversationId = conversation.conversationId;
         addConversation(cwd, {
           conversationId,
-          preview: currentMessage || "New conversation",
+          preview: useConversationStore.getState().currentMessage || "New conversation",
           path: conversation.rolloutPath,
           timestamp: new Date().toISOString(),
         });
@@ -192,7 +193,6 @@ export default function ChatPage() {
     selectedProviderId,
     setActiveConversationId,
     setIsInitializing,
-    currentMessage,
   ]);
 
   const sendConversationMessage = useCallback(
@@ -219,7 +219,7 @@ export default function ChatPage() {
       return;
     }
 
-    const originalMessage = currentMessage;
+    const originalMessage = useConversationStore.getState().currentMessage;
     const trimmed = originalMessage.trim();
     if (!trimmed) return;
 
@@ -272,7 +272,6 @@ export default function ChatPage() {
   }, [
     activeConversationId,
     createConversation,
-    currentMessage,
     cwd,
     ensureCodexInitialized,
     sendConversationMessage,
@@ -280,19 +279,6 @@ export default function ChatPage() {
     setIsSending,
   ]);
 
-  useEffect(() => {
-    const unlisten = listen("codex:process-exited", () => {
-      console.warn("[chat] codex:process-exited");
-      toast({
-        title: "Codex app-server exited",
-        description: "The Codex app-server process exited unexpectedly. Please restart the application.",
-        variant: "destructive",
-      });
-    });
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, []);
   const focusChatInput = useCallback(() => {
     textAreaRef.current?.focus();
   }, []);

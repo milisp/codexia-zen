@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from "react";
-import { cn } from "@/lib/utils";
 import { ChatCompose } from "@/components/ChatCompose";
 import DeltaEventLog from "@/components/DeltaEventLog";
+import { EventItem } from "@/components/EventItem";
 import type { ConversationEvent, EventWithId } from "@/types/chat";
 
 interface ChatPanelProps {
@@ -15,25 +15,6 @@ interface ChatPanelProps {
   isInitializing: boolean;
   canCompose: boolean;
   textAreaRef: RefObject<HTMLTextAreaElement | null>;
-}
-
-function renderEventSummary(event: ConversationEvent): string | null {
-  const { msg } = event;
-  if ("message" in msg && typeof msg.message === "string") {
-    return msg.message;
-  }
-  if (msg.type === "task_complete" && msg.last_agent_message) {
-    return msg.last_agent_message;
-  }
-  return null;
-}
-
-function renderEventPayload(event: ConversationEvent): string {
-  try {
-    return JSON.stringify(event.msg, null, 2);
-  } catch {
-    return String(event.msg);
-  }
 }
 
 export function ChatPanel({
@@ -78,37 +59,12 @@ export function ChatPanel({
         ) : (
           <>
             {events.map((event) => {
-              const isUser = event.msg.type === "user_message";
-              const summary = renderEventSummary(event);
-              const payloadText = renderEventPayload(event);
               return (
-                <div
+                <EventItem
                   key={event.id}
-                  className={cn(
-                    "flex w-full",
-                    isUser ? "justify-end" : "justify-start",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "max-w-xl rounded-lg px-4 py-3 text-sm shadow-sm",
-                      isUser && "bg-primary text-primary-foreground",
-                      !isUser && "bg-muted text-foreground",
-                    )}
-                  >
-                    <div className="text-xs font-medium uppercase text-muted-foreground mb-1">
-                      {event.msg.type.replace(/_/g, " ")}
-                    </div>
-                    {summary && (
-                      <div className="whitespace-pre-wrap leading-relaxed mb-3">
-                        {summary}
-                      </div>
-                    )}
-                    <pre className="whitespace-pre-wrap rounded bg-background/60 p-2 text-xs text-muted-foreground">
-                      {payloadText}
-                    </pre>
-                  </div>
-                </div>
+                  event={event}
+                  conversationId={conversationId}
+                />
               );
             })}
 
