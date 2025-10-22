@@ -90,7 +90,9 @@ export function useCodexEvents({
               msg: eventMsg,
             };
 
-            console.debug("[codex:event]", conversationId, eventMsg.type, eventRecord);
+            if (!eventMsg.type.endsWith("_delta")) {
+              console.debug("[codex:event]", conversationId, eventMsg.type, eventRecord);
+            }
 
             if (DELTA_EVENT_TYPES.has(eventMsg.type)) {
               setDeltaEventMap((prev) => {
