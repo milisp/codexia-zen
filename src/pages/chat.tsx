@@ -1,9 +1,11 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 import { ConversationList } from "@/components/ConversationList";
 import { ChatPanel } from "@/components/ChatPanel";
 import { getNewConversationParams } from "@/components/config/ConversationParams";
+import { toast } from "@/components/ui/use-toast";
 import { useConversationStore } from "@/stores/useConversationStore";
 import { useConversationListStore } from "@/stores/useConversationListStore";
 import { useSessionStore } from "@/stores/useSessionStore";
@@ -113,6 +115,7 @@ export default function ChatPage() {
     try {
       await initializationPromiseRef.current;
     } catch (error) {
+      console.error("Failed to initialize Codex client", error);
       codexInitializedRef.current = false;
       throw error;
     }
@@ -283,6 +286,19 @@ export default function ChatPage() {
     setIsSending,
   ]);
 
+  useEffect(() => {
+    const unlisten = listen("codex:process-exited", () => {
+      console.warn("[chat] codex:process-exited");
+      toast({
+        title: "Codex app-server exited",
+        description: "The Codex app-server process exited unexpectedly. Please restart the application.",
+        variant: "destructive",
+      });
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
   const focusChatInput = useCallback(() => {
     textAreaRef.current?.focus();
   }, []);
