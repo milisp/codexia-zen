@@ -12,7 +12,7 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { useChatSession } from "@/hooks/useChatSession";
 
 export default function ChatPage() {
-  const chatInputRef = useRef<HTMLInputElement>(null);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const { messages, currentMessage, setCurrentMessage } =
     useConversationStore();
   const { activeConversationId } = useConversationListStore();
@@ -23,7 +23,7 @@ export default function ChatPage() {
   const activeMessages = messages[activeConversationId || ""] || [];
 
   const focusChatInput = () => {
-    chatInputRef.current?.focus();
+    textAreaRef.current?.focus();
   };
 
   const handleNewConversationAndFocus = () => {
@@ -48,7 +48,7 @@ export default function ChatPage() {
           handleSendMessage={() => handleSendMessage(currentMessage)}
           isSending={isSending}
           isInitializing={isInitializing}
-          inputRef={chatInputRef}
+          textAreaRef={textAreaRef}
         />
       </ResizablePanel>
     </ResizablePanelGroup>

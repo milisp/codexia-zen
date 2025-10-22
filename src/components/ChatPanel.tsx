@@ -14,7 +14,7 @@ interface ChatPanelProps {
   handleSendMessage: () => void;
   isSending: boolean;
   isInitializing: boolean;
-  inputRef: React.RefObject<HTMLInputElement | null>;
+  textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 export function ChatPanel({
@@ -25,7 +25,7 @@ export function ChatPanel({
   handleSendMessage,
   isSending,
   isInitializing,
-  inputRef,
+  textAreaRef,
 }: ChatPanelProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const deltaEvents = useDeltaEvents(activeConversationId);
@@ -99,7 +99,7 @@ export function ChatPanel({
           handleSendMessage={handleSendMessage}
           isSending={isSending}
           isInitializing={isInitializing}
-          inputRef={inputRef}
+          textAreaRef={textAreaRef}
         />
       </div>
     </div>
