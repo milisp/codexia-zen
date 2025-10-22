@@ -5,8 +5,8 @@ use tokio::sync::Mutex;
 
 mod codex;
 mod codex_discovery;
-mod config;
 mod commands;
+mod config;
 mod export_bindings;
 mod state;
 
@@ -30,10 +30,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::start_conversation,
-            commands::send_message,
+            commands::initialize_codex,
             commands::new_conversation,
-            commands::exec_approval_request,
+            commands::send_user_message,
             commands::delete_file,
             config::read_codex_config,
         ])

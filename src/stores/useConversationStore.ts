@@ -1,102 +1,54 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { EventMsg } from "@/bindings/EventMsg";
-import { Message } from "@/types";
-import { EventWithId } from "@/types/Message";
+import type { ConversationEvent, EventWithId } from "@/types/chat";
+import { DELTA_EVENT_TYPES } from "@/types/chat";
 
-type ConversationStore = {
-  messages: Record<string, Message[]>;
+interface ConversationState {
+  eventsByConversation: Record<string, ConversationEvent[]>;
   currentMessage: string;
-};
+}
 
-type ChatActions = {
-  addMessage: (conversationId: string, message: Message) => void;
-  updateLastAgentMessage: (conversationId: string, event: EventWithId) => void;
-  deleteMessages: (conversationId: string) => void;
-  setCurrentMessage: (message: string) => void;
-};
+interface ConversationActions {
+  setCurrentMessage: (value: string) => void;
+  appendEvent: (conversationId: string, event: EventWithId) => void;
+  replaceEvents: (conversationId: string, events: ConversationEvent[]) => void;
+  clearConversation: (conversationId: string) => void;
+  reset: () => void;
+}
 
-const extractEventContent = (msg: EventMsg): string => {
-  switch (msg.type) {
-    case "agent_message":
-      return msg.message;
-    case "agent_reasoning_raw_content":
-      return msg.text;
-    default:
-      return "";
-  }
-};
-
-export const useConversationStore = create<ConversationStore & ChatActions>()(
-  persist(
-    (set, get) => ({
-      messages: {},
-      currentMessage: "",
-
-      addMessage: (conversationId, message) => {
-        set((state) => ({
-          messages: {
-            ...state.messages,
-            [conversationId]: [
-              ...(state.messages[conversationId] || []),
-              message,
-            ],
-          },
-        }));
+export const useConversationStore = create<
+  ConversationState & ConversationActions
+>()((set) => ({
+  eventsByConversation: {},
+  currentMessage: "",
+  setCurrentMessage: (value) => set({ currentMessage: value }),
+  appendEvent: (conversationId, event) => {
+    if (DELTA_EVENT_TYPES.has(event.msg.type)) {
+      return;
+    }
+    set((state) => {
+      const existing = state.eventsByConversation[conversationId] ?? [];
+      return {
+        eventsByConversation: {
+          ...state.eventsByConversation,
+          [conversationId]: [...existing, event],
+        },
+      };
+    });
+  },
+  replaceEvents: (conversationId, events) =>
+    set((state) => ({
+      eventsByConversation: {
+        ...state.eventsByConversation,
+        [conversationId]: events.filter(
+          (event) => !DELTA_EVENT_TYPES.has(event.msg.type),
+        ),
       },
-
-      updateLastAgentMessage: (conversationId, event) => {
-        if (
-          event.msg.type === "agent_message" ||
-          event.msg.type === "agent_reasoning_raw_content"
-        ) {
-          const messages = get().messages[conversationId] || [];
-          const lastMessage = messages[messages.length - 1];
-
-          if (lastMessage?.role === "assistant") {
-            const existingEvents = lastMessage.events || [];
-            const isDuplicate = existingEvents.some(
-              (e) => JSON.stringify(e.msg) === JSON.stringify(event.msg),
-            );
-
-            const newContent = extractEventContent(event.msg);
-
-            const updatedMessage = {
-              ...lastMessage,
-              content: newContent,
-              events: isDuplicate ? existingEvents : [...existingEvents, event],
-            };
-
-            set((state) => ({
-              messages: {
-                ...state.messages,
-                [conversationId]: [...messages.slice(0, -1), updatedMessage],
-              },
-            }));
-          } else {
-            get().addMessage(conversationId, {
-              id: event.id,
-              role: "assistant",
-              content: extractEventContent(event.msg),
-              timestamp: Date.now(),
-              events: [event],
-            });
-          }
-        }
-      },
-
-      deleteMessages: (conversationId) => {
-        set((state) => {
-          const { [conversationId]: _, ...rest } = state.messages;
-          return { messages: rest };
-        });
-      },
-
-      setCurrentMessage: (message) => set({ currentMessage: message }),
+    })),
+  clearConversation: (conversationId) =>
+    set((state) => {
+      const updated = { ...state.eventsByConversation };
+      delete updated[conversationId];
+      return { eventsByConversation: updated };
     }),
-
-    {
-      name: "conversation-storage",
-    },
-  ),
-);
+  reset: () => set({ eventsByConversation: {}, currentMessage: "" }),
+}));

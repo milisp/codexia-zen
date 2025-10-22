@@ -1,26 +1,22 @@
 import { create } from "zustand";
 
-type SessionState = {
-  isSessionActive: boolean;
+interface SessionState {
   isInitializing: boolean;
-  error: string | null;
-};
+  isSending: boolean;
+}
 
-type SessionActions = {
-  setSessionActive: (isActive: boolean) => void;
-  setIsInitializing: (isInitializing: boolean) => void;
-  setError: (error: string | null) => void;
-};
+interface SessionActions {
+  setIsInitializing: (value: boolean) => void;
+  setIsSending: (value: boolean) => void;
+  reset: () => void;
+}
 
 export const useSessionStore = create<SessionState & SessionActions>()(
   (set) => ({
-    isSessionActive: false,
     isInitializing: false,
-    error: null,
-
-    setSessionActive: (isActive) =>
-      set({ isSessionActive: isActive, isInitializing: false }),
-    setIsInitializing: (isInitializing) => set({ isInitializing }),
-    setError: (error) => set({ error }),
+    isSending: false,
+    setIsInitializing: (value) => set({ isInitializing: value }),
+    setIsSending: (value) => set({ isSending: value }),
+    reset: () => set({ isInitializing: false, isSending: false }),
   }),
 );

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { EventWithId } from "@/types/Message";
+import type { EventWithId } from "@/types/chat";
 
 /**
  * Renders streaming delta events for the assistant. It accumulates the deltas

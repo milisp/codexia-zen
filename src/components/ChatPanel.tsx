@@ -1,25 +1,44 @@
-import { ChatCompose } from "./ChatCompose";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useRef, useEffect } from "react";
-import EventLog from "./EventLog";
-import DeltaEventLog from "./DeltaEventLog";
-import { useDeltaEvents } from "@/hooks/useDeltaEvents";
-import { Message } from "@/types/Message";
+import { useEffect, useRef } from "react";
+import { cn } from "@/lib/utils";
+import { ChatCompose } from "@/components/ChatCompose";
+import DeltaEventLog from "@/components/DeltaEventLog";
+import type { ConversationEvent, EventWithId } from "@/types/chat";
 
 interface ChatPanelProps {
-  activeConversationId: string | null;
-  activeMessages: Message[];
+  conversationId: string | null;
+  events: ConversationEvent[];
+  deltaEvents: EventWithId[];
   currentMessage: string;
-  setCurrentMessage: (msg: string) => void;
+  setCurrentMessage: (value: string) => void;
   handleSendMessage: () => void;
   isSending: boolean;
   isInitializing: boolean;
   textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
+function renderEventSummary(event: ConversationEvent): string | null {
+  const { msg } = event;
+  if ("message" in msg && typeof msg.message === "string") {
+    return msg.message;
+  }
+  if (msg.type === "task_complete" && msg.last_agent_message) {
+    return msg.last_agent_message;
+  }
+  return null;
+}
+
+function renderEventPayload(event: ConversationEvent): string {
+  try {
+    return JSON.stringify(event.msg, null, 2);
+  } catch {
+    return String(event.msg);
+  }
+}
+
 export function ChatPanel({
-  activeConversationId,
-  activeMessages,
+  conversationId,
+  events,
+  deltaEvents,
   currentMessage,
   setCurrentMessage,
   handleSendMessage,
@@ -27,78 +46,88 @@ export function ChatPanel({
   isInitializing,
   textAreaRef,
 }: ChatPanelProps) {
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const deltaEvents = useDeltaEvents(activeConversationId);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({
-        top: scrollAreaRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, [
-    activeMessages.length,
-    activeMessages[activeMessages.length - 1]?.content,
-    activeMessages[activeMessages.length - 1]?.events?.length,
-  ]);
+    const container = scrollRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [events, deltaEvents]);
+
+  const composerDisabled =
+    isInitializing || !conversationId || isSending;
+
+  const hasContent = events.length > 0 || deltaEvents.length > 0;
 
   return (
     <div className="flex h-full flex-col">
-      <main className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
-        <div className="flex-1 mb-2 flex flex-col">
-          <ScrollArea className="flex-1">
-            <div ref={scrollAreaRef}>
-              {activeConversationId || activeMessages.length > 0 ? (
-                activeMessages.map((msg, idx) => (
+      <div
+        ref={scrollRef}
+        className="flex-1 space-y-4 overflow-y-auto px-6 py-4"
+      >
+        {!conversationId ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Choose a project and start a conversation to begin chatting.
+          </div>
+        ) : !hasContent ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Send a message to start the conversation.
+          </div>
+        ) : (
+          <>
+            {events.map((event) => {
+              const isUser = event.msg.type === "user_message";
+              const summary = renderEventSummary(event);
+              const payloadText = renderEventPayload(event);
+              return (
+                <div
+                  key={event.id}
+                  className={cn(
+                    "flex w-full",
+                    isUser ? "justify-end" : "justify-start",
+                  )}
+                >
                   <div
-                    key={String(msg.id) ?? `msg-${idx}`}
-                    className={`mb-4 flex items-start gap-3 ${
-                      msg.role === "user" ? "justify-end" : "justify-start"
-                    }`}
+                    className={cn(
+                      "max-w-xl rounded-lg px-4 py-3 text-sm shadow-sm",
+                      isUser && "bg-primary text-primary-foreground",
+                      !isUser && "bg-muted text-foreground",
+                    )}
                   >
-                    <div
-                      className={`w-[90%] rounded-lg p-3 ${
-                        msg.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      }`}
-                    >
-                  {msg.role === "assistant" ? (
-                    <div className="bg-muted rounded-lg">
-                      {/* Render stored events (final messages) */}
-                      {msg.events && msg.events.length > 0 && (
-                        <EventLog events={msg.events} />
-                      )}
+                    <div className="text-xs font-medium uppercase text-muted-foreground mb-1">
+                      {event.msg.type.replace(/_/g, " ")}
                     </div>
-                  ) : (
-                        <p className="text-sm whitespace-pre-wrap">
-                          {msg.content}
-                        </p>
-                      )}
-                    </div>
+                    {summary && (
+                      <div className="whitespace-pre-wrap leading-relaxed mb-3">
+                        {summary}
+                      </div>
+                    )}
+                    <pre className="whitespace-pre-wrap rounded bg-background/60 p-2 text-xs text-muted-foreground">
+                      {payloadText}
+                    </pre>
                   </div>
-                ))
-             ) : (
-               <div className="flex h-full items-center justify-center text-muted-foreground">
-                 Select a conversation or start a new one.
-               </div>
-             )}
-              {/* Render any pending delta events for the active conversation */}
-              {activeConversationId && deltaEvents.length > 0 && (
+                </div>
+              );
+            })}
+
+            {deltaEvents.length > 0 && (
+              <div className="rounded-lg border bg-muted/40 px-4 py-3 text-sm shadow-sm">
+                <div className="text-xs font-medium uppercase text-muted-foreground mb-2">
+                  Streaming updates
+                </div>
                 <DeltaEventLog events={deltaEvents} />
-              )}
-           </div>
-         </ScrollArea>
-        </div>
-      </main>
-      <div className="sticky bottom-0 left-0 right-0 bg-background border-t">
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <div className="border-t bg-background p-4">
         <ChatCompose
           currentMessage={currentMessage}
           setCurrentMessage={setCurrentMessage}
           handleSendMessage={handleSendMessage}
           isSending={isSending}
-          isInitializing={isInitializing}
+          isInitializing={composerDisabled}
           textAreaRef={textAreaRef}
         />
       </div>
