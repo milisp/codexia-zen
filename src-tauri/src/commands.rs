@@ -10,7 +10,7 @@ use log::{error, info, warn};
 use tauri::{AppHandle, State};
 
 use crate::codex::CodexClient;
-use crate::state::AppState;
+use crate::state::{AppState, get_or_init_client};
 
 #[tauri::command]
 pub async fn initialize_codex(
@@ -126,29 +126,6 @@ pub async fn delete_file(path: String) -> Result<(), String> {
             error!("Failed to delete file {trimmed}: {err}");
             format!("Failed to delete file: {err}")
         })
-}
-
-async fn get_or_init_client(
-    state: &State<'_, AppState>,
-    app_handle: &AppHandle,
-) -> Result<Arc<CodexClient>, String> {
-    if let Some(existing) = {
-        let guard = state.client.lock().await;
-        guard.clone()
-    } {
-        return Ok(existing);
-    }
-
-    info!("Starting Codex app-server process");
-    let client = CodexClient::spawn(app_handle.clone()).await?;
-    info!("Codex app-server spawned");
-
-    let mut guard = state.client.lock().await;
-    if let Some(existing) = guard.as_ref() {
-        return Ok(existing.clone());
-    }
-    *guard = Some(client.clone());
-    Ok(client)
 }
 
 fn parse_review_decision(decision: &str) -> Result<ReviewDecision, String> {

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { memo, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -59,21 +59,6 @@ function EventBubble({
       </div>
     </div>
   );
-}
-
-function formatCommand(parts: string[]): string {
-  return parts
-    .map((part) =>
-      /\s/.test(part) ? `"${part.replace(/"/g, '\\"')}"` : part,
-    )
-    .join(" ");
-}
-
-function formatEventTitle(type: string): string {
-  return type
-    .split("_")
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(" ");
 }
 
 function describeParsedCommand(
@@ -176,7 +161,7 @@ function DefaultEventContent({
 
 type ExecDecision = "approved" | "approved_for_session" | "denied" | "abort";
 
-export function EventItem({
+export const EventItem = memo(function EventItem({
   event,
   conversationId,
 }: {
@@ -266,7 +251,7 @@ export function EventItem({
         </EventBubble>
       );
     case "exec_approval_request": {
-      const commandText = formatCommand(msg.command);
+      const commandText = msg.command.join(" ");
       const awaitingDecision = Boolean(execApprovalRequest);
       return (
         <EventBubble
@@ -302,9 +287,6 @@ export function EventItem({
             )}
             {awaitingDecision ? (
               <div className="space-y-3 border-t border-border/50 pt-3">
-                <div className="text-xs font-semibold uppercase text-muted-foreground">
-                  Choose an action
-                </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
@@ -365,7 +347,7 @@ export function EventItem({
         >
           <div className="space-y-2">
             <code className="block whitespace-pre-wrap rounded bg-muted/40 px-2 py-1 font-mono text-xs">
-              {formatCommand(msg.command)}
+              {msg.command.join(" ")}
             </code>
             {msg.cwd && (
               <div className="text-xs text-muted-foreground">
@@ -480,7 +462,7 @@ export function EventItem({
         <EventBubble
           align="start"
           variant="system"
-          title={formatEventTitle(msg.type)}
+          title={msg.type}
         >
           <DefaultEventContent
             message={
@@ -493,4 +475,4 @@ export function EventItem({
         </EventBubble>
       );
   }
-}
+})
