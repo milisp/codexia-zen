@@ -57,18 +57,11 @@ export default function ChatPage() {
   const appendEvent = useConversationStore((state) => state.appendEvent);
   const replaceEvents = useConversationStore((state) => state.replaceEvents);
 
-  const activeConversationId = useConversationListStore(
-    (state) => state.activeConversationId,
-  );
-  const setActiveConversationId = useConversationListStore(
-    (state) => state.setActiveConversationId,
-  );
-  const addConversation = useConversationListStore(
-    (state) => state.addConversation,
-  );
-  const updateConversationPreview = useConversationListStore(
-    (state) => state.updateConversationPreview,
-  );
+  const {
+    activeConversationId,
+    setActiveConversationId,
+    addConversation,
+  } = useConversationListStore();
 
   const isInitializing = useSessionStore((state) => state.isInitializing);
   const isSending = useSessionStore((state) => state.isSending);
@@ -88,7 +81,6 @@ export default function ChatPage() {
     eventsByConversation,
     activeConversationId,
     appendEvent,
-    updateConversationPreview,
     setIsInitializing,
     setIsSending,
     isInitializing,
@@ -168,7 +160,7 @@ export default function ChatPage() {
         const conversationId = conversation.conversationId;
         addConversation(cwd, {
           conversationId,
-          preview: "New conversation",
+          preview: currentMessage || "New conversation",
           path: conversation.rolloutPath,
           timestamp: new Date().toISOString(),
         });
@@ -200,6 +192,7 @@ export default function ChatPage() {
     selectedProviderId,
     setActiveConversationId,
     setIsInitializing,
+    currentMessage,
   ]);
 
   const sendConversationMessage = useCallback(
@@ -231,8 +224,7 @@ export default function ChatPage() {
     if (!trimmed) return;
 
     setIsSending(true);
-    setCurrentMessage("");
-
+    // Maintain the original message temporarily for preview during conversation creation
     let pendingRestore: string | null = originalMessage;
 
     try {
@@ -246,6 +238,8 @@ export default function ChatPage() {
         }
         targetConversationId = newConversationId;
       }
+      // Clear the message input after ensuring the conversation exists
+      setCurrentMessage("");
 
       const params = buildTextMessageParams(targetConversationId, trimmed);
       console.info("[chat] send_user_message", targetConversationId, trimmed.length);

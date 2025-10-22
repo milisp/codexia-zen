@@ -6,14 +6,6 @@ import type { EventMsg } from "@/bindings/EventMsg";
 import type { ConversationEventPayload, EventWithId } from "@/types/chat";
 import { DELTA_EVENT_TYPES } from "@/types/chat";
 
-const PREVIEW_EVENT_TYPES = new Set<EventMsg["type"]>([
-  "user_message",
-  "agent_message",
-  "error",
-  "stream_error",
-  "task_complete",
-]);
-
 function createEventId(raw: unknown): string {
   if (typeof raw === "string" && raw.length > 0) {
     return raw;
@@ -30,7 +22,6 @@ interface UseCodexEventsParams {
   eventsByConversation: EventsByConversation;
   activeConversationId: string | null;
   appendEvent: (conversationId: string, event: EventWithId) => void;
-  updateConversationPreview: (conversationId: string, preview: string) => void;
   setIsInitializing: (value: boolean) => void;
   setIsSending: (value: boolean) => void;
   isInitializing: boolean;
@@ -45,7 +36,6 @@ export function useCodexEvents({
   eventsByConversation,
   activeConversationId,
   appendEvent,
-  updateConversationPreview,
   setIsInitializing,
   setIsSending,
   isInitializing,
@@ -115,18 +105,6 @@ export function useCodexEvents({
 
             appendEvent(conversationId, eventRecord);
 
-            if (PREVIEW_EVENT_TYPES.has(eventMsg.type)) {
-              let preview: string | null = null;
-              if ("message" in eventMsg && typeof eventMsg.message === "string") {
-                preview = eventMsg.message;
-              } else if (eventMsg.type === "task_complete") {
-                preview = eventMsg.last_agent_message ?? null;
-              }
-              if (preview && preview.trim().length > 0) {
-                updateConversationPreview(conversationId, preview.trim());
-              }
-            }
-
             if (
               eventMsg.type === "task_complete" ||
               eventMsg.type === "error" ||
@@ -169,7 +147,6 @@ export function useCodexEvents({
     };
   }, [
     appendEvent,
-    updateConversationPreview,
     setIsInitializing,
     setIsSending,
     isInitializing,

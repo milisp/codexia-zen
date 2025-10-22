@@ -47,7 +47,9 @@ export function ConversationList({ onNewTempConversation }: ConversationListProp
                         : "text-muted-foreground"
                     }`}
                   >
-                    {conv.preview}
+                    {conv.preview.length > 50
+                      ? `${conv.preview.substring(0, 50)}...`
+                      : conv.preview}
                   </button>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="ml-1">
