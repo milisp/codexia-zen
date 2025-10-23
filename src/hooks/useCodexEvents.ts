@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import type { EventMsg } from "@/bindings/EventMsg";
 import type { ConversationEventPayload, EventWithId } from "@/types/chat";
 import { DELTA_EVENT_TYPES } from "@/types/chat";
+import { useActiveConversationStore } from "@/stores/useActiveConversationStore";
 
 function createEventId(raw: unknown): string {
   if (typeof raw === "string" && raw.length > 0) {
@@ -20,7 +21,6 @@ type EventsByConversation = Record<string, EventWithId[]>;
 
 interface UseCodexEventsParams {
   eventsByConversation: EventsByConversation;
-  activeConversationId: string | null;
   appendEvent: (conversationId: string, event: EventWithId) => void;
   setIsInitializing: (value: boolean) => void;
   setIsSending: (value: boolean) => void;
@@ -34,13 +34,13 @@ interface UseCodexEventsResult {
 
 export function useCodexEvents({
   eventsByConversation,
-  activeConversationId,
   appendEvent,
   setIsInitializing,
   setIsSending,
   isInitializing,
 }: UseCodexEventsParams): UseCodexEventsResult {
   const [deltaEventMap, setDeltaEventMap] = useState<EventsByConversation>({});
+  const { activeConversationId } = useActiveConversationStore();
 
   useEffect(() => {
     setDeltaEventMap((prev) => {
@@ -164,4 +164,3 @@ export function useCodexEvents({
 
   return { deltaEventMap, initializeConversationBuffer };
 }
-

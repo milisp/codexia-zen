@@ -1,7 +1,6 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 
-use codex_app_server_protocol::{
+use codex_app_server_protocol::{ 
     AddConversationListenerParams, NewConversationParams, NewConversationResponse,
     SendUserMessageParams, SendUserMessageResponse,
 };
@@ -9,18 +8,7 @@ use codex_protocol::protocol::ReviewDecision;
 use log::{error, info, warn};
 use tauri::{AppHandle, State};
 
-use crate::codex::CodexClient;
 use crate::state::{AppState, get_or_init_client};
-
-#[tauri::command]
-pub async fn initialize_codex(
-    state: State<'_, AppState>,
-    app_handle: AppHandle,
-) -> Result<(), String> {
-    info!("Initializing Codex client");
-    let _ = get_or_init_client(&state, &app_handle).await?;
-    Ok(())
-}
 
 #[tauri::command]
 pub async fn new_conversation(

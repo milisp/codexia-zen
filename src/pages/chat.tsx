@@ -6,6 +6,7 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { getNewConversationParams } from "@/components/config/ConversationParams";
 import { useConversationStore } from "@/stores/useConversationStore";
 import { useConversationListStore } from "@/stores/useConversationListStore";
+import { useActiveConversationStore } from "@/stores/useActiveConversationStore";
 import { useSessionStore } from "@/stores/useSessionStore";
 import { useProviderStore } from "@/stores/useProviderStore";
 import { useSandboxStore } from "@/stores/useSandboxStore";
@@ -39,35 +40,32 @@ function buildTextMessageParams(
 
 export default function ChatPage() {
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
-
-  const codexInitializedRef = useRef(false);
-  const initializationPromiseRef = useRef<Promise<void> | null>(null);
   const createConversationPromiseRef = useRef<Promise<string | null> | null>(
     null,
   );
 
-  const {eventsByConversation, appendEvent, replaceEvents, currentMessage, setCurrentMessage} = useConversationStore();
-
   const {
-    activeConversationId,
-    setActiveConversationId,
-    addConversation,
-  } = useConversationListStore();
+    eventsByConversation,
+    appendEvent,
+    replaceEvents,
+    currentMessage,
+    setCurrentMessage,
+  } = useConversationStore();
 
-  const {isInitializing, isSending, setIsInitializing, setIsSending } = useSessionStore();
+    const { addConversation } = useConversationListStore();
 
-  const {
-    providers,
-    selectedProviderId,
-    selectedModel,
-    reasoningEffort,
-  } = useProviderStore();
+    const { activeConversationId, setActiveConversationId } = useActiveConversationStore();
+
+  const { isInitializing, isSending, setIsInitializing, setIsSending } =
+    useSessionStore();
+
+  const { providers, selectedProviderId, selectedModel, reasoningEffort } =
+    useProviderStore();
   const { mode, approvalPolicy } = useSandboxStore();
   const { cwd } = useCodexStore();
 
   const { deltaEventMap, initializeConversationBuffer } = useCodexEvents({
     eventsByConversation,
-    activeConversationId,
     appendEvent,
     setIsInitializing,
     setIsSending,
@@ -75,33 +73,6 @@ export default function ChatPage() {
   });
 
   useCodexApprovalRequests();
-
-  const ensureCodexInitialized = useCallback(async () => {
-    if (codexInitializedRef.current) {
-      return;
-    }
-
-    if (!initializationPromiseRef.current) {
-      console.info("[chat] initialize_codex");
-      setIsInitializing(true);
-      initializationPromiseRef.current = invoke("initialize_codex")
-        .then(() => {
-          codexInitializedRef.current = true;
-        })
-        .finally(() => {
-          initializationPromiseRef.current = null;
-          setIsInitializing(false);
-        });
-    }
-
-    try {
-      await initializationPromiseRef.current;
-    } catch (error) {
-      console.error("Failed to initialize Codex client", error);
-      codexInitializedRef.current = false;
-      throw error;
-    }
-  }, [setIsInitializing]);
 
   const activeEvents: ConversationEvent[] = useMemo(() => {
     if (!activeConversationId) return [];
@@ -116,7 +87,10 @@ export default function ChatPage() {
 
     // Deep compare newDeltaEvents with the current value in the ref
     // If they are deeply equal, return the ref's current value to maintain referential stability
-    if (JSON.stringify(newDeltaEvents) === JSON.stringify(activeDeltaEventsRef.current)) {
+    if (
+      JSON.stringify(newDeltaEvents) ===
+      JSON.stringify(activeDeltaEventsRef.current)
+    ) {
       return activeDeltaEventsRef.current;
     }
 
@@ -161,7 +135,9 @@ export default function ChatPage() {
         const conversationId = conversation.conversationId;
         addConversation(cwd, {
           conversationId,
-          preview: useConversationStore.getState().currentMessage || "New conversation",
+          preview:
+            useConversationStore.getState().currentMessage ||
+            "New conversation",
           path: conversation.rolloutPath,
           timestamp: new Date().toISOString(),
         });
@@ -205,10 +181,7 @@ export default function ChatPage() {
       await invoke<SendUserMessageResponse>("send_user_message", {
         params,
       });
-      console.debug(
-        "[chat] send_user_message success",
-        params.conversationId,
-      );
+      console.debug("[chat] send_user_message success", params.conversationId);
     },
     [],
   );
@@ -228,8 +201,6 @@ export default function ChatPage() {
     let pendingRestore: string | null = originalMessage;
 
     try {
-      await ensureCodexInitialized();
-
       let targetConversationId = activeConversationId;
       if (!targetConversationId) {
         const newConversationId = await createConversation();
@@ -242,7 +213,11 @@ export default function ChatPage() {
       setCurrentMessage("");
 
       const params = buildTextMessageParams(targetConversationId, trimmed);
-      console.info("[chat] send_user_message", targetConversationId, trimmed.length);
+      console.info(
+        "[chat] send_user_message",
+        targetConversationId,
+        trimmed.length,
+      );
       await sendConversationMessage(params);
       pendingRestore = null;
     } catch (error) {
@@ -250,12 +225,17 @@ export default function ChatPage() {
       console.error("Failed to send message", error);
 
       if (message.includes("conversation not found")) {
-        console.warn("Conversation missing on Codex server; creating a new one.");
+        console.warn(
+          "Conversation missing on Codex server; creating a new one.",
+        );
         const newConversationId = await createConversation();
         if (newConversationId) {
           try {
             console.info("[chat] resend send_user_message", newConversationId);
-            const resendParams = buildTextMessageParams(newConversationId, trimmed);
+            const resendParams = buildTextMessageParams(
+              newConversationId,
+              trimmed,
+            );
             await sendConversationMessage(resendParams);
             pendingRestore = null;
           } catch (resendErr) {
@@ -273,7 +253,7 @@ export default function ChatPage() {
     activeConversationId,
     createConversation,
     cwd,
-    ensureCodexInitialized,
+
     sendConversationMessage,
     setCurrentMessage,
     setIsSending,

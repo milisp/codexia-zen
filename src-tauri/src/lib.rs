@@ -30,7 +30,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::initialize_codex,
+
             commands::new_conversation,
             commands::send_user_message,
             commands::respond_exec_command_request,

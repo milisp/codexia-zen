@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useConversationListStore } from "@/stores/useConversationListStore";
+import { useActiveConversationStore } from "@/stores/useActiveConversationStore";
 import { useConversationStore } from "@/stores/useConversationStore";
 import { useCodexStore } from "@/stores/useCodexStore";
 
@@ -16,7 +17,8 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ onNewTempConversation }: ConversationListProps) {
-  const { conversationsByCwd, activeConversationId, setActiveConversationId } = useConversationListStore();
+    const { conversationsByCwd } = useConversationListStore();
+  const { activeConversationId, setActiveConversationId } = useActiveConversationStore();
   const { cwd } = useCodexStore();
 
   const conversations = (conversationsByCwd[cwd || ""] || []).slice().reverse();

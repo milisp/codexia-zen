@@ -5,11 +5,9 @@ import type { ConversationSummary } from "@/bindings/ConversationSummary";
 interface ConversationListState {
   conversationsByCwd: Record<string, ConversationSummary[]>;
   conversationIndex: Record<string, string>;
-  activeConversationId: string | null;
 }
 
 interface ConversationListActions {
-  setActiveConversationId: (conversationId: string | null) => void;
   addConversation: (cwd: string, summary: ConversationSummary) => void;
   updateConversationPreview: (conversationId: string, preview: string) => void;
   removeConversation: (conversationId: string) => void;
@@ -23,10 +21,6 @@ export const useConversationListStore = create<
     (set, get) => ({
       conversationsByCwd: {},
       conversationIndex: {},
-      activeConversationId: null,
-
-      setActiveConversationId: (conversationId) =>
-        set({ activeConversationId: conversationId }),
 
       addConversation: (cwd, summary) =>
         set((state) => {
@@ -91,18 +85,12 @@ export const useConversationListStore = create<
           const nextIndex = { ...state.conversationIndex };
           delete nextIndex[conversationId];
 
-          const shouldClearActive =
-            state.activeConversationId === conversationId;
-
           return {
             conversationsByCwd: {
               ...state.conversationsByCwd,
               [cwd]: nextList,
             },
             conversationIndex: nextIndex,
-            activeConversationId: shouldClearActive
-              ? null
-              : state.activeConversationId,
           };
         });
       },
@@ -111,7 +99,6 @@ export const useConversationListStore = create<
         set({
           conversationsByCwd: {},
           conversationIndex: {},
-          activeConversationId: null,
         }),
     }),
     {
