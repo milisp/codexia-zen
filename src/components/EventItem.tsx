@@ -193,7 +193,7 @@ export const EventItem = memo(function EventItem({
     setIsSubmitting(true);
     try {
       await invoke("respond_exec_command_request", {
-        request_token: execApprovalRequest.requestToken,
+        requestToken: execApprovalRequest.requestToken,
         decision,
       });
       removeExecRequest(execApprovalRequest.callId);
