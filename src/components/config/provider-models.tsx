@@ -11,6 +11,11 @@ import { useProviderStore } from "@/stores/useProviderStore";
 import { ChevronDown, PlusCircle } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 function AddProviderForm({ onAdd }: { onAdd: () => void }) {
   const [name, setName] = useState("");
@@ -98,18 +103,32 @@ export function ProviderModels() {
     setSelectedProviderId,
     setSelectedModel,
     setApiKey,
+    setApiKeyVar,
+    setBaseUrl,
   } = useProviderStore();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAddModelForm, setShowAddModelForm] = useState(false);
+  const [showProviderDetails, setShowProviderDetails] = useState(false);
 
   const selectedProvider = providers.find((p) => p.id === selectedProviderId);
 
   const currentApiKey = selectedProvider?.apiKey ?? "";
+  const currentApiKeyVar = selectedProvider?.apiKeyVar ?? "";
+  const currentBaseUrl = selectedProvider?.baseUrl ?? "";
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log(selectedProviderId);
     if (selectedProviderId) {
       setApiKey(selectedProviderId, e.target.value);
+    }
+  };
+  const handleApiKeyVarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (selectedProviderId) {
+      setApiKeyVar(selectedProviderId, e.target.value);
+    }
+  };
+  const handleBaseUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (selectedProviderId) {
+      setBaseUrl(selectedProviderId, e.target.value);
     }
   };
 
@@ -118,6 +137,7 @@ export function ProviderModels() {
       onOpenChange={() => {
         setShowAddForm(false);
         setShowAddModelForm(false);
+        setShowProviderDetails(false);
       }}
     >
       <PopoverTrigger asChild>
@@ -163,6 +183,7 @@ export function ProviderModels() {
                       onClick={() => {
                         setSelectedProviderId(p.id);
                         setShowAddModelForm(false); // Hide add model form when changing provider
+                        setShowProviderDetails(false);
                       }}
                     >
                       {p.name}
@@ -190,6 +211,55 @@ export function ProviderModels() {
                   disabled={!selectedProviderId}
                 />
               </div>
+              <Collapsible
+                open={showProviderDetails}
+                onOpenChange={setShowProviderDetails}
+              >
+                <CollapsibleTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 gap-2 text-xs"
+                    disabled={!selectedProviderId}
+                  >
+                    {showProviderDetails
+                      ? "Hide additional fields"
+                      : "Show additional fields"}
+                    <ChevronDown
+                      className={`h-3 w-3 transition-transform ${
+                        showProviderDetails ? "rotate-180" : ""
+                      }`}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3 space-y-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      API Key Variable
+                    </Label>
+                    <Input
+                      placeholder="e.g., OPENAI_API_KEY"
+                      value={currentApiKeyVar}
+                      onChange={handleApiKeyVarChange}
+                      className="font-mono text-xs"
+                      disabled={!selectedProviderId}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Base URL
+                    </Label>
+                    <Input
+                      placeholder="https://api.example.com/v1"
+                      value={currentBaseUrl}
+                      onChange={handleBaseUrlChange}
+                      className="font-mono text-xs"
+                      disabled={!selectedProviderId}
+                    />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
 
             <Separator />
