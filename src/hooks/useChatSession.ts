@@ -206,6 +206,17 @@ export function useChatSession() {
       // Clear the message input after ensuring the conversation exists
       setCurrentMessage("");
 
+      // Append the user's message to the conversation store
+      appendEvent(targetConversationId, {
+        id: `user-message-${Date.now()}`,
+        msg: {
+          type: "user_message",
+          message: trimmed,
+          kind: null,
+          images: null,
+        },
+      });
+
       const params = buildTextMessageParams(targetConversationId, trimmed);
       console.info(
         "[chat] send_user_message",
