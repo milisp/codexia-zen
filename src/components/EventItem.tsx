@@ -239,6 +239,7 @@ export const EventItem = memo(function EventItem({
         </EventBubble>
       );
     case "agent_reasoning":
+    case "agent_reasoning_raw_content":
       return (
         <EventBubble
           align="start"
@@ -260,32 +261,12 @@ export const EventItem = memo(function EventItem({
           title="Command Approval Requested"
         >
           <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant={awaitingDecision ? "destructive" : "secondary"}>
-                {awaitingDecision ? "Awaiting decision" : "Decision submitted"}
-              </Badge>
-              <Badge variant="outline">{msg.call_id}</Badge>
-            </div>
-            {msg.reason && (
-              <p className="text-sm leading-relaxed">
-                {msg.reason}
-              </p>
-            )}
             <div className="space-y-1">
-              <div className="text-xs font-semibold uppercase text-muted-foreground">
-                Command
-              </div>
               <code className="block whitespace-pre-wrap rounded bg-muted/50 px-2 py-1 font-mono text-xs">
                 {commandText}
               </code>
             </div>
-            {msg.cwd && (
-              <div className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">cwd:</span> 
-                <code className="font-mono">{msg.cwd}</code>
-              </div>
-            )}
-            {awaitingDecision ? (
+            {awaitingDecision && (
               <div className="space-y-3 border-t border-border/50 pt-3">
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -320,18 +301,11 @@ export const EventItem = memo(function EventItem({
                     Abort turn
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Approving will run the command in the specified directory. Denying or aborting lets Codex continue without running it.
-                </p>
                 {isSubmitting ? (
                   <div className="text-xs text-muted-foreground">
                     Sending decision…
                   </div>
                 ) : null}
-              </div>
-            ) : (
-              <div className="border-t border-border/50 pt-3 text-xs text-muted-foreground">
-                Waiting for Codex to continue with the recorded decision.
               </div>
             )}
           </div>
@@ -349,12 +323,6 @@ export const EventItem = memo(function EventItem({
             <code className="block whitespace-pre-wrap rounded bg-muted/40 px-2 py-1 font-mono text-xs">
               {msg.command.join(" ")}
             </code>
-            {msg.cwd && (
-              <div className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">cwd:</span> 
-                <code className="font-mono">{msg.cwd}</code>
-              </div>
-            )}
             {msg.parsed_cmd.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
                 {msg.parsed_cmd.map((item, index) => (
