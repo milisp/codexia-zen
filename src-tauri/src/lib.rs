@@ -1,14 +1,7 @@
-use std::sync::Arc;
-use tauri::Manager;
 use tauri_plugin_log::log;
-use tokio::sync::Mutex;
 
-mod codex;
-mod codex_discovery;
 mod commands;
 mod config;
-mod export_bindings;
-mod state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,22 +12,13 @@ pub fn run() {
                 .level(log::LevelFilter::Info)
                 .build(),
         )
-        .setup(|app| {
+        .setup(|_app| {
             #[cfg(debug_assertions)]
-            export_bindings::export_ts_types();
-
-            app.manage(state::AppState {
-                client: Arc::new(Mutex::new(None)),
-            });
+            codex_bindings::export_bindings::export_ts_types();
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-
-            commands::new_conversation,
-            commands::send_user_message,
-            commands::respond_exec_command_request,
-            commands::delete_file,
             config::read_codex_config,
         ])
         .run(tauri::generate_context!())

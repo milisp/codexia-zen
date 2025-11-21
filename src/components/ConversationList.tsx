@@ -12,19 +12,15 @@ import { useActiveConversationStore } from "@/stores/useActiveConversationStore"
 import { useConversationStore } from "@/stores/useConversationStore";
 import { useCodexStore } from "@/stores/useCodexStore";
 
-interface ConversationListProps {
-  onNewTempConversation: () => void;
-}
-
-export function ConversationList({ onNewTempConversation }: ConversationListProps) {
-    const { conversationsByCwd } = useConversationListStore();
+export function ConversationList() {
+  const { conversationsByCwd } = useConversationListStore();
   const { activeConversationId, setActiveConversationId } = useActiveConversationStore();
   const { cwd } = useCodexStore();
 
-  const conversations = (conversationsByCwd[cwd || ""] || []).slice().reverse();
+  const conversations = (conversationsByCwd[cwd || "/tmp"] || []).slice().reverse();
 
   const handleNewTempConversation = () => {
-    onNewTempConversation();
+    setActiveConversationId(null);
   };
 
   return (

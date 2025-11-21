@@ -12,6 +12,7 @@ use ts_rs::TS;
 pub fn export_ts_types() {
     let out_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("..")
+        .join("..")
         .join("src")
         .join("bindings");
     std::fs::create_dir_all(&out_dir).unwrap();

@@ -39,12 +39,11 @@ export const SANDBOX_MODES: Record<
   },
 };
 
-
 const defaultConfig = {
-  "model_reasoning_effort": 'medium',
-  "show_raw_agent_reasoning": true,
-  "model_reasoning_summary": "auto"
-}
+  model_reasoning_effort: "medium",
+  show_raw_agent_reasoning: true,
+  model_reasoning_summary: "auto",
+};
 
 export const getNewConversationParams = (
   provider: any, // Replace 'any' with the actual type of provider
@@ -54,19 +53,28 @@ export const getNewConversationParams = (
   mode: mode,
   config?: Record<string, any> | null,
 ): NewConversationParams => {
-  const mergeConfig = config ? {
-    ...defaultConfig,
-    ...config
-  } : defaultConfig
+  const mergeConfig = config
+    ? {
+        ...defaultConfig,
+        ...config,
+      }
+    : defaultConfig;
   return {
-    profile: provider?.id ?? null,
     model: selectedModel,
+    profile: provider?.id ?? null,
+    modelProvider: null,
     cwd,
     approvalPolicy: approvalPolicy,
-    sandbox: mode === "chat" ? "read-only" : mode === "agent" ? "workspace-write" : "danger-full-access",
-    includePlanTool: true,
+    sandbox:
+      mode === "chat"
+        ? "read-only"
+        : mode === "agent"
+          ? "workspace-write"
+          : "danger-full-access",
     includeApplyPatchTool: true,
     config: mergeConfig,
     baseInstructions: null,
+    developerInstructions: null,
+    compactPrompt: null,
   };
 };
