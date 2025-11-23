@@ -27,15 +27,84 @@ export const useEventStore = create<EventStoreState>()(
         return;
       }
 
-      set((state) => ({
-        eventsByConversationId: {
-          ...state.eventsByConversationId,
-          [conversationId]: [
-            ...(state.eventsByConversationId[conversationId] ?? []),
-            params,
-          ],
-        },
-      }));
+      set((state) => {
+        const conversationEvents = state.eventsByConversationId[conversationId] ?? [];
+        const { msg } = params;
+
+        const mergeWithPrevious = (
+          predicate: (event: StreamedEventNotification["params"]) => boolean,
+        ) => {
+          const previousIndex = conversationEvents.findLastIndex(predicate);
+          if (previousIndex === -1) {
+            return null;
+          }
+
+          const previousEvent = conversationEvents[previousIndex];
+          if (!("delta" in previousEvent.msg) || typeof previousEvent.msg.delta !== "string") {
+            return null;
+          }
+
+          const deltaString =
+            "delta" in msg && typeof msg.delta === "string"
+              ? msg.delta
+              : undefined;
+          if (deltaString === undefined) {
+            return null;
+          }
+
+          const mergedDelta = `${previousEvent.msg.delta}${deltaString}`;
+          const updatedEvent: StreamedEventNotification["params"] = {
+            ...previousEvent,
+            msg: {
+              ...previousEvent.msg,
+              delta: mergedDelta,
+            },
+          };
+          const nextEvents = [...conversationEvents];
+          nextEvents[previousIndex] = updatedEvent;
+          return nextEvents;
+        };
+
+        let nextEvents = null;
+        if (msg.type === "reasoning_content_delta" && "item_id" in msg) {
+          nextEvents = mergeWithPrevious(
+            (event) =>
+              event.msg.type === "reasoning_content_delta" &&
+              "item_id" in event.msg &&
+              event.msg.item_id === msg.item_id,
+          );
+        } else if (msg.type === "agent_reasoning_delta") {
+          nextEvents = mergeWithPrevious(
+            (event) => event.msg.type === "agent_reasoning_delta",
+          );
+        } else if (
+          msg.type === "agent_message_content_delta" &&
+          "item_id" in msg
+        ) {
+          nextEvents = mergeWithPrevious(
+            (event) =>
+              event.msg.type === "agent_message_content_delta" &&
+              "item_id" in event.msg &&
+              event.msg.item_id === msg.item_id,
+          );
+        }
+
+        if (nextEvents) {
+          return {
+            eventsByConversationId: {
+              ...state.eventsByConversationId,
+              [conversationId]: nextEvents,
+            },
+          };
+        }
+
+        return {
+          eventsByConversationId: {
+            ...state.eventsByConversationId,
+            [conversationId]: [...conversationEvents, params],
+          },
+        };
+      });
     },
     clearConversationEvents: (conversationId) =>
       set((state) => {

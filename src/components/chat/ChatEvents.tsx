@@ -41,6 +41,18 @@ function renderEventSummary(msg: EventMsg) {
       return (
         <p className="text-sm font-medium text-green-600">Task complete</p>
       );
+    case "reasoning_content_delta":
+      return (
+        <p className="text-sm font-medium break-words">{msg.delta}</p>
+      );
+    case "agent_reasoning_delta":
+      return (
+        <p className="text-sm font-medium break-words">{msg.delta}</p>
+      );
+    case "agent_message_content_delta":
+      return (
+        <p className="text-sm font-medium break-words">{msg.delta}</p>
+      );
     case "item_started":
     case "item_completed":
     case "deprecation_notice":

@@ -68,7 +68,8 @@ export default function ChatPage() {
       if (
         msg.type.startsWith("item_") ||
         msg.type === "token_count" ||
-        msg.type === "deprecation_notice"
+        msg.type === "agent_message_delta" ||
+        msg.type === "exec_command_output_delta"
       ) {
         return;
       }
