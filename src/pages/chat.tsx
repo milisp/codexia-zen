@@ -3,64 +3,78 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { PencilIcon, RotateCw, Send, Play } from "lucide-react";
+import { PencilIcon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState, useCallback } from "react";
 import { useCodexStore } from "@/stores/useCodexStore";
-import type { EventMsg } from "@/bindings/EventMsg";
+import { useActiveConversationStore } from "@/stores/useActiveConversationStore";
+import { useEventStore } from "@/stores/useEventStore";
 import type { Thread } from "@/bindings/v2/Thread";
-import type { ThreadItem } from "@/bindings/v2/ThreadItem";
 import type { ThreadListParams } from "@/bindings/v2/ThreadListParams";
 import type { ThreadListResponse } from "@/bindings/v2/ThreadListResponse";
 import type { ThreadResumeParams } from "@/bindings/v2/ThreadResumeParams";
 import type { ThreadResumeResponse } from "@/bindings/v2/ThreadResumeResponse";
 import type { NewConversationParams } from "@/bindings/NewConversationParams";
 import type { NewConversationResponse } from "@/bindings/NewConversationResponse";
-
-type StreamedEventNotification = {
-  method: string;
-  params: {
-    conversationId: string;
-    id: string;
-    msg: EventMsg;
-  };
-};
+import { StreamedEventNotification } from "@/types";
+import {
+  ThreadSidebar,
+  ChatEvents,
+  ChatInput,
+  threadToEvents,
+} from "@/components/chat";
 
 export default function ChatPage() {
   const { cwd } = useCodexStore();
   const [prompt, setPrompt] = useState("");
   const [sending, setSending] = useState(false);
-  const [events, setEvents] = useState<StreamedEventNotification["params"][]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<
-    string | null
-  >(null);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [threadCursor, setThreadCursor] = useState<string | null>(null);
   const [isThreadLoading, setIsThreadLoading] = useState(false);
-  const [resumingThreadId, setResumingThreadId] = useState<string | null>(null);
   const [resumeStatus, setResumeStatus] = useState<string | null>(null);
 
-  const addEvent = useCallback((notification: StreamedEventNotification) => {
-    const { params } = notification;
-    if (!params.conversationId || !params.id || !params.msg) {
-      return;
-    }
-    const { msg } = params;
-    if (
-      msg.type.startsWith("item_") ||
-      msg.type === "token_count" ||
-      msg.type === "deprecation_notice"
-    ) {
-      return;
-    }
-    setActiveConversationId(params.conversationId);
-    setEvents((prev) => [...prev, params]);
-  }, []);
+  const activeConversationId = useActiveConversationStore(
+    (state) => state.activeConversationId,
+  );
+  const activeConversationIds = useActiveConversationStore(
+    (state) => state.activeConversationIds,
+  );
+  const setActiveConversationId = useActiveConversationStore(
+    (state) => state.setActiveConversationId,
+  );
+
+  const eventsByConversationId = useEventStore(
+    (state) => state.eventsByConversationId,
+  );
+  const appendEvent = useEventStore((state) => state.appendEvent);
+  const setConversationEvents = useEventStore(
+    (state) => state.setConversationEvents,
+  );
+  const events = activeConversationId
+    ? eventsByConversationId[activeConversationId] ?? []
+    : [];
+
+  const addEvent = useCallback(
+    (notification: StreamedEventNotification) => {
+      const { params } = notification;
+      if (!params.conversationId || !params.id || !params.msg) {
+        return;
+      }
+      const { msg } = params;
+      if (
+        msg.type.startsWith("item_") ||
+        msg.type === "token_count" ||
+        msg.type === "deprecation_notice"
+      ) {
+        return;
+      }
+      appendEvent(params);
+      setActiveConversationId(params.conversationId);
+    },
+    [appendEvent, setActiveConversationId],
+  );
 
   const loadThreads = useCallback(async (cursor: string | null = null) => {
     setIsThreadLoading(true);
@@ -107,9 +121,7 @@ export default function ChatPage() {
 
   const handleResumeThread = useCallback(
     async (threadId: string) => {
-      setResumingThreadId(threadId);
       setResumeStatus(null);
-      setEvents([]);
       setActiveConversationId(null);
       try {
         const params: ThreadResumeParams = {
@@ -131,7 +143,10 @@ export default function ChatPage() {
         console.debug("resume", response)
         const conversationId = response.thread.id;
         setResumeStatus(`Resumed ${response.thread.preview || response.thread.id}`);
-        setEvents(threadToEvents(response.thread));
+        setConversationEvents(
+          conversationId,
+          threadToEvents(response.thread),
+        );
         setActiveConversationId(conversationId);
         await invoke("add_conversation_listener", {
           conversationId,
@@ -142,10 +157,21 @@ export default function ChatPage() {
         setResumeStatus("Failed to resume thread.");
       } finally {
         console.debug("resume", threadId)
-        setResumingThreadId(null);
       }
     },
-    [loadThreads],
+    [loadThreads, setConversationEvents, setActiveConversationId],
+  );
+
+  const handleThreadPreview = useCallback(
+    (thread: Thread) => {
+      if (activeConversationIds.includes(thread.id)) {
+        setActiveConversationId(thread.id);
+        return;
+      }
+
+      handleResumeThread(thread.id);
+    },
+    [activeConversationIds, handleResumeThread, setActiveConversationId],
   );
 
   const buildConversationParams = (): NewConversationParams => ({
@@ -171,6 +197,7 @@ export default function ChatPage() {
       "new_conversation",
       { params },
     );
+    setConversationEvents(conversation.conversationId, []);
     setActiveConversationId(conversation.conversationId);
     await invoke("add_conversation_listener", {
       conversationId: conversation.conversationId,
@@ -179,7 +206,6 @@ export default function ChatPage() {
   };
 
   const newConversation = async () => {
-    setEvents([]);
     setActiveConversationId(null);
     await ensureConversation();
   };
@@ -205,75 +231,19 @@ export default function ChatPage() {
     <ResizablePanelGroup direction="horizontal" className="h-full w-screen">
       <ResizablePanel
         defaultSize={24}
-        className="flex h-full flex-col gap-3 border-r border-muted/20 bg-muted/10 px-3 py-3"
+        className="flex h-full flex-col gap-3 border-r border-muted/20 bg-muted/10"
       >
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Saved sessions
-          </p>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => loadThreads(null)}
-            disabled={isThreadLoading}
-          >
-            <RotateCw className="h-4 w-4" />
-          </Button>
-        </div>
-        <ScrollArea className="flex-1 overflow-hidden rounded-md border border-border bg-background">
-          <div className="space-y-2 p-2">
-            {isThreadLoading && threads.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Loading threads…</p>
-            ) : threads.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                No saved threads yet.
-              </p>
-            ) : (
-              threads.map((thread) => (
-                <div
-                  key={thread.id}
-                  className="flex flex-col space-y-1 rounded-lg border border-border bg-muted/40 px-3 py-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">
-                      {thread.preview || "Untitled thread"}
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleResumeThread(thread.id)}
-                      disabled={resumingThreadId === thread.id}
-                    >
-                      <Play size={10} />
-                    </Button>
-                    {thread.modelProvider} •{" "}
-                    {new Date(Number(thread.createdAt) * 1000).toLocaleString()}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-        <div className="flex flex-col gap-2">
-          {resumeStatus && (
-            <Badge className="text-xs">{resumeStatus}</Badge>
-          )}
-          {threadCursor && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => loadThreads(threadCursor)}
-              disabled={isThreadLoading}
-            >
-              {isThreadLoading ? "Loading…" : "Load more"}
-            </Button>
-          )}
-        </div>
+        <ThreadSidebar
+          isThreadLoading={isThreadLoading}
+          loadThreads={loadThreads}
+          threadCursor={threadCursor}
+          threads={threads}
+          resumeStatus={resumeStatus}
+          onSelectThread={handleThreadPreview}
+        />
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={80} minSize={60}>
+      <ResizablePanel defaultSize={76} minSize={60}>
         <div className="flex h-full flex-col relative">
           <Button
             size="icon"
@@ -281,131 +251,18 @@ export default function ChatPage() {
           >
             <PencilIcon />
           </Button>
-          <ScrollArea className="flex-1 bg-muted/20 rounded-lg pb-[80px] h-full">
-            <div className="space-y-3 p-4">
-              {events.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Start a conversation to stream Codex events here.
-                </p>
-              ) : (
-                events.map((item, index) => (
-                  <div
-                    key={index}
-                    className="rounded-md border bg-background p-3 shadow-sm"
-                  >
-                    {renderEventSummary(item.msg)}
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
+          <ChatEvents events={events} />
           {/* chat input  */}
           <div className="absolute bottom-0 w-full bg-background">
-            <div className="flex gap-3 mt-3 shrink-0 px-4 pb-4">
-              <Textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder="Ask Codex to do anything..."
-                className="h-12 resize-none"
-              />
-              <Button
-                variant="default"
-                size="icon"
-                onClick={sendUserMessage}
-                disabled={!prompt.trim() || sending}
-              >
-                <Send />
-              </Button>
-            </div>
+            <ChatInput
+              prompt={prompt}
+              onPromptChange={setPrompt}
+              onSend={sendUserMessage}
+              sending={sending}
+            />
           </div>
         </div>
       </ResizablePanel>
     </ResizablePanelGroup>
   );
-}
-
-function renderEventSummary(msg: EventMsg) {
-  switch (msg.type) {
-    case "agent_message":
-    case "user_message":
-      return <p className="text-sm font-medium">{msg.message}</p>;
-    case "error":
-      return (
-        <Badge>{msg.message}</Badge>
-      );
-    case "task_complete":
-      return (
-        <p className="text-sm font-medium text-green-600">Task complete</p>
-      );
-    case "item_started":
-    case "item_completed":
-    case "deprecation_notice":
-    case "task_started":
-    case "token_count":
-      return null
-    default:
-      return (
-        <p className="text-xs text-muted-foreground">
-          {msg.type}
-        </p>
-      );
-  }
-}
-
-function threadToEvents(
-  thread: Thread,
-): StreamedEventNotification["params"][] {
-  const events: StreamedEventNotification["params"][] = [];
-
-  for (const turn of thread.turns) {
-    for (const item of turn.items) {
-      const msg = convertThreadItemToEventMsg(item);
-      if (!msg) {
-        continue;
-      }
-
-      events.push({
-        conversationId: thread.id,
-        id: item.id,
-        msg,
-      });
-    }
-  }
-
-  return events;
-}
-
-function convertThreadItemToEventMsg(item: ThreadItem): EventMsg | null {
-  switch (item.type) {
-    case "agentMessage":
-      return { type: "agent_message", message: item.text };
-    case "userMessage": {
-      const parts: string[] = [];
-      const images: string[] = [];
-
-      for (const input of item.content) {
-        switch (input.type) {
-          case "text":
-            parts.push(input.text);
-            break;
-          case "image":
-            parts.push(`Image: ${input.url}`);
-            images.push(input.url);
-            break;
-          case "localImage":
-            parts.push(`Image: ${input.path}`);
-            images.push(input.path);
-            break;
-        }
-      }
-
-      return {
-        type: "user_message",
-        message: parts.length > 0 ? parts.join("\n") : "User message",
-        images: images.length > 0 ? images : null,
-      };
-    }
-    default:
-      return null;
-  }
 }
