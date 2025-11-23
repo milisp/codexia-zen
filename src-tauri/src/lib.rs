@@ -1,7 +1,9 @@
 use tauri_plugin_log::log;
 
+mod codex_client;
 mod commands;
 mod config;
+mod state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -18,8 +20,16 @@ pub fn run() {
 
             Ok(())
         })
+        .manage(codex_client::CodexClientManager::default())
         .invoke_handler(tauri::generate_handler![
             config::read_codex_config,
+            commands::run_turn,
+            commands::initialize_client,
+            commands::new_conversation,
+            commands::add_conversation_listener,
+            commands::send_user_message,
+            commands::list_threads,
+            commands::resume_thread,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

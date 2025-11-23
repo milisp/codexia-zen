@@ -3,16 +3,27 @@ import { persist } from "zustand/middleware";
 
 interface CodexState {
   cwd: string | null;
-  setCwd: (cwd: string | null) => void;
-  clearCwd: () => void;
+  isInitializing: boolean;
+  isSending: boolean;
 }
 
-export const useCodexStore = create<CodexState>()(
+interface CodexActions {
+  setCwd: (cwd: string | null) => void;
+  setIsInitializing: (value: boolean) => void;
+  setIsSending: (value: boolean) => void;
+  resetSession: () => void;
+}
+
+export const useCodexStore = create<CodexState & CodexActions>()(
   persist(
     (set) => ({
       cwd: null,
+      isInitializing: false,
+      isSending: false,
       setCwd: (cwd) => set({ cwd }),
-      clearCwd: () => set({ cwd: null }),
+      setIsInitializing: (value) => set({ isInitializing: value }),
+      setIsSending: (value) => set({ isSending: value }),
+      resetSession: () => set({ isInitializing: false, isSending: false }),
     }),
     {
       name: "codex-meta",
