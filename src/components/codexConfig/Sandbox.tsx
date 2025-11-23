@@ -16,7 +16,7 @@ import {
   APPROVAL_POLICIES,
   SANDBOX_MODES,
   MODE_OPTIONS,
-} from "@/components/config/ConversationParams";
+} from "@/components/codexConfig/ConversationParams";
 
 import { useSandboxStore } from "@/stores/useSandboxStore";
 

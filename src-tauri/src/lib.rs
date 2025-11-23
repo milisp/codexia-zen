@@ -23,6 +23,7 @@ pub fn run() {
         .manage(codex_client::CodexClientManager::default())
         .invoke_handler(tauri::generate_handler![
             config::read_codex_config,
+            config::read_providers,
             commands::run_turn,
             commands::initialize_client,
             commands::new_conversation,

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PencilIcon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useCodexStore } from "@/stores/useCodexStore";
 import { useActiveConversationStore } from "@/stores/useActiveConversationStore";
 import { useEventStore } from "@/stores/useEventStore";
@@ -16,7 +16,6 @@ import type { ThreadListParams } from "@/bindings/v2/ThreadListParams";
 import type { ThreadListResponse } from "@/bindings/v2/ThreadListResponse";
 import type { ThreadResumeParams } from "@/bindings/v2/ThreadResumeParams";
 import type { ThreadResumeResponse } from "@/bindings/v2/ThreadResumeResponse";
-import type { NewConversationParams } from "@/bindings/NewConversationParams";
 import type { NewConversationResponse } from "@/bindings/NewConversationResponse";
 import { StreamedEventNotification } from "@/types";
 import {
@@ -25,9 +24,25 @@ import {
   ChatInput,
   threadToEvents,
 } from "@/components/chat";
+import type { NewConversationParams } from "@/bindings/NewConversationParams";
+import { getNewConversationParams } from "@/components/codexConfig/ConversationParams";
+import { useSandboxStore } from "@/stores/useSandboxStore";
+import { useProviderStore } from "@/stores/useProviderStore";
 
 export default function ChatPage() {
   const { cwd } = useCodexStore();
+  const { mode, approvalPolicy } = useSandboxStore();
+  const { providers } = useProviderStore();
+  const {
+    selectedModel,
+    reasoningEffort,
+    selectedProvider: selectedProviderName,
+  } = useCodexStore();
+  const selectedProvider = useMemo(
+    () =>
+      providers.find((provider) => provider.name === selectedProviderName) ?? null,
+    [providers, selectedProviderName],
+  );
   const [prompt, setPrompt] = useState("");
   const [sending, setSending] = useState(false);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -35,23 +50,17 @@ export default function ChatPage() {
   const [isThreadLoading, setIsThreadLoading] = useState(false);
   const [resumeStatus, setResumeStatus] = useState<string | null>(null);
 
-  const activeConversationId = useActiveConversationStore(
-    (state) => state.activeConversationId,
-  );
-  const activeConversationIds = useActiveConversationStore(
-    (state) => state.activeConversationIds,
-  );
-  const setActiveConversationId = useActiveConversationStore(
-    (state) => state.setActiveConversationId,
-  );
+  const {
+    activeConversationId,
+    activeConversationIds,
+    setActiveConversationId,
+  } = useActiveConversationStore();
 
-  const eventsByConversationId = useEventStore(
-    (state) => state.eventsByConversationId,
-  );
-  const appendEvent = useEventStore((state) => state.appendEvent);
-  const setConversationEvents = useEventStore(
-    (state) => state.setConversationEvents,
-  );
+  const {
+    eventsByConversationId,
+    appendEvent,
+    setConversationEvents,
+  } = useEventStore();
   const events = activeConversationId
     ? eventsByConversationId[activeConversationId] ?? []
     : [];
@@ -174,19 +183,17 @@ export default function ChatPage() {
     [activeConversationIds, handleResumeThread, setActiveConversationId],
   );
 
-  const buildConversationParams = (): NewConversationParams => ({
-    model: "qwen2.5-coder:0.5b",
-    modelProvider: "ollama",
-    profile: "ollama",
-    cwd: cwd ?? null,
-    approvalPolicy: "on-request",
-    sandbox: "workspace-write",
-    config: null,
-    baseInstructions: null,
-    developerInstructions: null,
-    compactPrompt: null,
-    includeApplyPatchTool: true,
-  });
+  const buildConversationParams = (): NewConversationParams =>
+    getNewConversationParams(
+      selectedProvider,
+      selectedModel,
+      cwd ?? null,
+      approvalPolicy,
+      mode,
+      {
+        model_reasoning_effort: reasoningEffort,
+      },
+    );
 
   const ensureConversation = async (): Promise<string> => {
     if (activeConversationId) {

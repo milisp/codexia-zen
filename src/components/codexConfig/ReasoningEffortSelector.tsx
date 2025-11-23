@@ -6,7 +6,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../ui/popover';
-import { useProviderStore } from '@/stores/useProviderStore';
+import { useCodexStore } from '@/stores/useCodexStore';
 
 const EFFORT_OPTIONS = [
   { value: 'minimal', label: 'Minimal' },
@@ -17,20 +17,20 @@ const EFFORT_OPTIONS = [
 
 export const ReasoningEffortSelector: React.FC = () => {
   const {
+    selectedModel,
     reasoningEffort,
     setReasoningEffort,
-    selectedModel,
-    selectedProviderId,
-  } = useProviderStore();
+    selectedProvider,
+  } = useCodexStore();
   const [isOpen, setIsOpen] = useState(false);
 
   const allowedEfforts = useMemo(() => {
-    const provider = selectedProviderId?.toLowerCase();
+    const provider = selectedProvider?.toLowerCase();
     if (provider === 'openai' && selectedModel === 'gpt-5-codex') {
       return EFFORT_OPTIONS.filter((effort) => effort.value !== 'minimal');
     }
     return EFFORT_OPTIONS;
-  }, [selectedModel, selectedProviderId]);
+  }, [selectedModel, selectedProvider]);
 
   useEffect(() => {
     const isCurrentEffortAllowed = allowedEfforts.some(

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { AskForApproval } from "@/bindings/AskForApproval";
-import { mode, SANDBOX_MODES } from "@/components/config/ConversationParams";
+import { mode, SANDBOX_MODES } from "@/components/codexConfig/ConversationParams";
 
 interface SandboxState {
   mode: mode;

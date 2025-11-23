@@ -10,9 +10,19 @@ pub struct ProjectConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelProviderConfig {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub base_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodexConfig {
     #[serde(default)]
     pub projects: HashMap<String, ProjectConfig>,
+    #[serde(default)]
+    pub model_providers: HashMap<String, ModelProviderConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,19 +36,25 @@ pub fn get_config_path() -> Result<PathBuf, String> {
     Ok(home_dir.join(".codex").join("config.toml"))
 }
 
-#[command]
-pub async fn read_codex_config() -> Result<Vec<Project>, String> {
+fn load_codex_config() -> Result<CodexConfig, String> {
     let config_path = get_config_path()?;
 
     if !config_path.exists() {
-        return Ok(Vec::new());
+        return Ok(CodexConfig {
+            projects: HashMap::new(),
+            model_providers: HashMap::new(),
+        });
     }
 
     let content = fs::read_to_string(&config_path)
         .map_err(|e| format!("Failed to read config file: {}", e))?;
 
-    let config: CodexConfig =
-        toml::from_str(&content).map_err(|e| format!("Failed to parse config file: {}", e))?;
+    toml::from_str(&content).map_err(|e| format!("Failed to parse config file: {}", e))
+}
+
+#[command]
+pub async fn read_codex_config() -> Result<Vec<Project>, String> {
+    let config = load_codex_config()?;
 
     let projects: Vec<Project> = config
         .projects
@@ -50,4 +66,10 @@ pub async fn read_codex_config() -> Result<Vec<Project>, String> {
         .collect();
 
     Ok(projects)
+}
+
+#[command]
+pub async fn read_providers() -> Result<HashMap<String, ModelProviderConfig>, String> {
+    let config = load_codex_config()?;
+    Ok(config.model_providers)
 }

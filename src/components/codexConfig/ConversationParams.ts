@@ -1,5 +1,6 @@
 import { NewConversationParams } from "@/bindings/NewConversationParams";
 import { AskForApproval } from "@/bindings/AskForApproval";
+import type { ProviderConfig } from "@/stores/useProviderStore";
 
 export type mode = "chat" | "agent" | "agent-full";
 export const APPROVAL_POLICIES: AskForApproval[] = [
@@ -41,12 +42,12 @@ export const SANDBOX_MODES: Record<
 
 const defaultConfig = {
   model_reasoning_effort: "medium",
-  show_raw_agent_reasoning: true,
+  show_raw_agent_reasoning: false,
   model_reasoning_summary: "auto",
 };
 
 export const getNewConversationParams = (
-  provider: any, // Replace 'any' with the actual type of provider
+  provider: ProviderConfig | null,
   selectedModel: string | null,
   cwd: string | null,
   approvalPolicy: AskForApproval,
@@ -61,8 +62,8 @@ export const getNewConversationParams = (
     : defaultConfig;
   return {
     model: selectedModel,
-    profile: provider?.id ?? null,
-    modelProvider: null,
+    profile: provider?.name ?? null,
+    modelProvider: provider?.name ?? null,
     cwd,
     approvalPolicy: approvalPolicy,
     sandbox:
