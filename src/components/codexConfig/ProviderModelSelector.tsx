@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,9 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { invoke } from "@tauri-apps/api/core";
 import {
-  ProviderConfig,
   DEFAULT_PROVIDERS,
-  mergeProvidersWithDefaults,
   useProviderStore,
 } from "@/stores/useProviderStore";
 import {
@@ -19,13 +17,19 @@ import {
 } from "@/stores/useModelStore";
 import { useCodexStore } from "@/stores/useCodexStore";
 
-type ProviderResponseValue = {
-  name?: string;
-  base_url?: string;
-};
-
 const formatProviderLabel = (value: string) =>
   value.charAt(0).toUpperCase() + value.slice(1);
+
+const mergeProvidersWithDefaults = (providers: string[]): string[] => {
+  const providerSet = new Set(providers);
+  const normalized = [...providers];
+  DEFAULT_PROVIDERS.forEach((provider) => {
+    if (!providerSet.has(provider)) {
+      normalized.push(provider);
+    }
+  });
+  return normalized;
+};
 
 export const ProviderModelSelector: React.FC = () => {
   const {
@@ -52,22 +56,16 @@ export const ProviderModelSelector: React.FC = () => {
   useEffect(() => {
     const loadProviders = async () => {
       try {
-        const response = await invoke<Record<string, ProviderResponseValue>>(
+        const response = await invoke<Record<string, unknown>>(
           "read_providers",
         );
-        const parsedProviders: ProviderConfig[] = Object.entries(response).map(
-          ([id, provider]) => {
-            const providerName = provider.name ?? id;
-            return {
-              name: providerName,
-            };
-          },
-        );
+        console.debug(Object.keys(response))
+        const parsedProviders = Object.keys(response).map((id) => id);
         const normalized = mergeProvidersWithDefaults(parsedProviders);
         setProviders(normalized);
         normalized.forEach((provider) => {
-          if (provider.name !== "ollama") {
-            ensureProviderModels(provider.name);
+          if (provider !== "ollama") {
+            ensureProviderModels(provider);
           }
         });
       } catch (error) {
@@ -84,22 +82,17 @@ export const ProviderModelSelector: React.FC = () => {
     }
     if (
       !selectedProvider ||
-      !providers.some((provider) => provider.name === selectedProvider)
+      !providers.includes(selectedProvider)
     ) {
-      setSelectedProvider(providers[0].name);
+      setSelectedProvider(providers[0]);
     }
   }, [providers, selectedProvider, setSelectedProvider]);
 
   useEffect(() => {
     providers
-      .filter((provider) => provider.name !== "ollama")
-      .forEach((provider) => ensureProviderModels(provider.name));
+      .filter((provider) => provider !== "ollama")
+      .forEach((provider) => ensureProviderModels(provider));
   }, [ensureProviderModels, providers]);
-
-  const selectedProviderConfig = useMemo(
-    () => providers.find((provider) => provider.name === selectedProvider) ?? null,
-    [providers, selectedProvider],
-  );
 
   const providerName = selectedProvider ?? "";
   const isOllamaProvider =
@@ -164,11 +157,6 @@ export const ProviderModelSelector: React.FC = () => {
   }, [selectedProvider, getOssModels]);
   const displayModel =
     selectedModel ?? availableModels[0] ?? "Select a model";
-  const providerLabel =
-    selectedProviderConfig?.name
-      ? formatProviderLabel(selectedProviderConfig.name)
-      : formatProviderLabel(DEFAULT_PROVIDERS[0].name);
-
   const handleProviderSelect = (name: string) => {
     setSelectedProvider(name);
     const isOllama =
@@ -218,7 +206,6 @@ export const ProviderModelSelector: React.FC = () => {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" className="flex items-center gap-1 px-3" size="sm">
-          <span className="text-sm font-medium">{providerLabel}</span>
           <span className="text-xs text-muted-foreground uppercase">
             {displayModel}
           </span>
@@ -235,15 +222,15 @@ export const ProviderModelSelector: React.FC = () => {
             <div className="space-y-1 max-h-[280px] overflow-y-auto">
               {providers.map((provider) => (
                 <Button
-                  key={provider.name}
-                  variant={provider.name === selectedProvider ? "default" : "ghost"}
+                  key={provider}
+                  variant={provider === selectedProvider ? "default" : "ghost"}
                   size="sm"
                   className="w-full justify-start text-left"
                   onClick={() => {
-                    handleProviderSelect(provider.name);
+                    handleProviderSelect(provider);
                   }}
                 >
-                  {formatProviderLabel(provider.name)}
+                  {formatProviderLabel(provider)}
                 </Button>
               ))}
             </div>

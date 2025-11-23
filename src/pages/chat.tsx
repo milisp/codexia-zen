@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PencilIcon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useCodexStore } from "@/stores/useCodexStore";
 import { useActiveConversationStore } from "@/stores/useActiveConversationStore";
 import { useEventStore } from "@/stores/useEventStore";
@@ -27,22 +27,15 @@ import {
 import type { NewConversationParams } from "@/bindings/NewConversationParams";
 import { getNewConversationParams } from "@/components/codexConfig/ConversationParams";
 import { useSandboxStore } from "@/stores/useSandboxStore";
-import { useProviderStore } from "@/stores/useProviderStore";
 
 export default function ChatPage() {
   const { cwd } = useCodexStore();
   const { mode, approvalPolicy } = useSandboxStore();
-  const { providers } = useProviderStore();
   const {
     selectedModel,
     reasoningEffort,
     selectedProvider: selectedProviderName,
   } = useCodexStore();
-  const selectedProvider = useMemo(
-    () =>
-      providers.find((provider) => provider.name === selectedProviderName) ?? null,
-    [providers, selectedProviderName],
-  );
   const [prompt, setPrompt] = useState("");
   const [sending, setSending] = useState(false);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -185,7 +178,7 @@ export default function ChatPage() {
 
   const buildConversationParams = (): NewConversationParams =>
     getNewConversationParams(
-      selectedProvider,
+      selectedProviderName,
       selectedModel,
       cwd ?? null,
       approvalPolicy,

@@ -1,6 +1,5 @@
 import { NewConversationParams } from "@/bindings/NewConversationParams";
 import { AskForApproval } from "@/bindings/AskForApproval";
-import type { ProviderConfig } from "@/stores/useProviderStore";
 
 export type mode = "chat" | "agent" | "agent-full";
 export const APPROVAL_POLICIES: AskForApproval[] = [
@@ -47,7 +46,7 @@ const defaultConfig = {
 };
 
 export const getNewConversationParams = (
-  provider: ProviderConfig | null,
+  providerName: string | null,
   selectedModel: string | null,
   cwd: string | null,
   approvalPolicy: AskForApproval,
@@ -62,8 +61,8 @@ export const getNewConversationParams = (
     : defaultConfig;
   return {
     model: selectedModel,
-    profile: provider?.name ?? null,
-    modelProvider: provider?.name ?? null,
+    profile: providerName ?? null,
+    modelProvider: providerName ?? null,
     cwd,
     approvalPolicy: approvalPolicy,
     sandbox:
