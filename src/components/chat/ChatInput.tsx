@@ -34,8 +34,8 @@ export function ChatInput({
         </Button>
       </div>
       <div className="flex items-center px-4">
-        <ProviderModelSelector />
         <Sandbox />
+        <ProviderModelSelector />
         <ReasoningEffortSelector />
       </div>
     </>
