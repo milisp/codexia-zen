@@ -10,9 +10,10 @@
 - UI: shadcn UI components
 - code comment language: English-only
 - Zustand: for state management with persistence
+- When consuming Zustand stores prefer destructuring the store return (e.g. `const { foo } = useStore();`) instead of manually selecting each state/action via `(state) => state.foo`.
 
 ## Common Commands
-- `bun run build` - test frontend
+- `bun run build` - when frontend code change
 
 ## Project Structure
 - `src/components/` - React components
