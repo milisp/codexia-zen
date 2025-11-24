@@ -15,8 +15,6 @@ export function EventItem({ params }: EventItemProps) {
       return <p className="text-sm font-medium justify-end">{msg.message}</p>;
     case "agent_reasoning":
       return <p className="text-sm font-medium">{msg.text}</p>;
-    case "error":
-      return <Badge>{msg.message}</Badge>;
     case "task_complete":
       return (
         <p className="text-sm font-medium text-green-600">Task complete</p>
@@ -74,6 +72,9 @@ export function EventItem({ params }: EventItemProps) {
       return (
         <p className="text-xs text-muted-foreground">{JSON.stringify(msg)}</p>
       );
+    case "error":
+    case "stream_error":
+        return <Badge variant="destructive">{msg.message}</Badge>;
     default:
       return <p className="text-xs text-muted-foreground">{msg.type}</p>;
   }

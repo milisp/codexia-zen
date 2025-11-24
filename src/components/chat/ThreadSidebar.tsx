@@ -1,26 +1,58 @@
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Thread } from "@/bindings/v2/Thread";
+import type { ThreadListParams } from "@/bindings/v2/ThreadListParams";
+import type { ThreadListResponse } from "@/bindings/v2/ThreadListResponse";
+import { invoke } from "@tauri-apps/api/core";
 import { RotateCw } from "lucide-react";
 
 interface ThreadSidebarProps {
-  isThreadLoading: boolean;
-  loadThreads: (cursor?: string | null) => void;
-  threadCursor: string | null;
-  threads: Thread[];
   resumeStatus: string | null;
   onSelectThread: (thread: Thread) => void;
 }
 
 export function ThreadSidebar({
-  isThreadLoading,
-  loadThreads,
-  threadCursor,
-  threads,
   resumeStatus,
   onSelectThread,
 }: ThreadSidebarProps) {
+  const [isThreadLoading, setIsThreadLoading] = useState(false);
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [threadCursor, setThreadCursor] = useState<string | null>(null);
+
+  const loadThreads = useCallback(async (cursor: string | null = null) => {
+    setIsThreadLoading(true);
+    try {
+      const params: ThreadListParams = {
+        cursor,
+        limit: 20,
+        modelProviders: null,
+      };
+      const response = await invoke<ThreadListResponse>("list_threads", {
+        params,
+      });
+      setThreadCursor(response.nextCursor);
+      setThreads((prev) =>
+        cursor ? [...prev, ...response.data] : response.data,
+      );
+    } catch (error) {
+      console.error("failed to list threads", error);
+    } finally {
+      setIsThreadLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadThreads(null);
+  }, [loadThreads]);
+
+  useEffect(() => {
+    if (resumeStatus) {
+      loadThreads(null);
+    }
+  }, [loadThreads, resumeStatus]);
+
   return (
     <>
       <div className="flex items-center justify-end">

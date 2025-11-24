@@ -12,8 +12,6 @@ import { useCodexStore } from "@/stores/useCodexStore";
 import { useActiveConversationStore } from "@/stores/useActiveConversationStore";
 import { useEventStore } from "@/stores/useEventStore";
 import type { Thread } from "@/bindings/v2/Thread";
-import type { ThreadListParams } from "@/bindings/v2/ThreadListParams";
-import type { ThreadListResponse } from "@/bindings/v2/ThreadListResponse";
 import type { ThreadResumeParams } from "@/bindings/v2/ThreadResumeParams";
 import type { ThreadResumeResponse } from "@/bindings/v2/ThreadResumeResponse";
 import type { NewConversationResponse } from "@/bindings/NewConversationResponse";
@@ -27,41 +25,7 @@ import {
 import type { NewConversationParams } from "@/bindings/NewConversationParams";
 import { getNewConversationParams } from "@/components/codexConfig/ConversationParams";
 import { useSandboxStore } from "@/stores/useSandboxStore";
-import type { ExecCommandApprovalParams } from "@/bindings/ExecCommandApprovalParams";
-import type { FileChange } from "@/bindings/FileChange";
-
-type ReviewDecisionType = "approved" | "approved_for_session" | "denied" | "abort";
-
-type ApplyPatchApprovalPayload = {
-  conversationId: string;
-  callId: string;
-  fileChanges: Record<string, FileChange | undefined>;
-  reason: string | null;
-  grantRoot: string | null;
-};
-
-type ApprovalRequestNotification =
-  | {
-      request_id: string;
-      type: "exec_command";
-      params: ExecCommandApprovalParams;
-    }
-  | {
-      request_id: string;
-      type: "apply_patch";
-      params: ApplyPatchApprovalPayload;
-    };
-
-const APPROVAL_DECISIONS: Array<{
-  label: string;
-  value: ReviewDecisionType;
-}> = [
-  { label: "Allow once", value: "approved" },
-  { label: "Allow for session", value: "approved_for_session" },
-  { label: "Deny", value: "denied" },
-  { label: "Abort", value: "abort" },
-];
-
+import { ApprovalRequestPanel } from "@/components/chat/ApprovalRequestCard";
 export default function ChatPage() {
   const { cwd } = useCodexStore();
   const { mode, approvalPolicy } = useSandboxStore();
@@ -72,30 +36,17 @@ export default function ChatPage() {
   } = useCodexStore();
   const [prompt, setPrompt] = useState("");
   const [sending, setSending] = useState(false);
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [threadCursor, setThreadCursor] = useState<string | null>(null);
-  const [isThreadLoading, setIsThreadLoading] = useState(false);
   const [resumeStatus, setResumeStatus] = useState<string | null>(null);
-  const [approvalRequests, setApprovalRequests] = useState<
-    ApprovalRequestNotification[]
-  >([]);
-  const [processingApprovalIds, setProcessingApprovalIds] = useState<string[]>(
-    [],
-  );
-
   const {
     activeConversationId,
     activeConversationIds,
     setActiveConversationId,
   } = useActiveConversationStore();
 
-  const {
-    eventsByConversationId,
-    appendEvent,
-    setConversationEvents,
-  } = useEventStore();
+  const { eventsByConversationId, appendEvent, setConversationEvents } =
+    useEventStore();
   const events = activeConversationId
-    ? eventsByConversationId[activeConversationId] ?? []
+    ? (eventsByConversationId[activeConversationId] ?? [])
     : [];
 
   const addEvent = useCallback(
@@ -115,7 +66,7 @@ export default function ChatPage() {
         return;
       } else {
         if (!msg.type.endsWith("_delta")) {
-          console.info(msg) // don't remove this
+          console.info(msg); // don't remove this
         }
       }
       appendEvent(params);
@@ -123,28 +74,6 @@ export default function ChatPage() {
     },
     [appendEvent, setActiveConversationId],
   );
-
-  const loadThreads = useCallback(async (cursor: string | null = null) => {
-    setIsThreadLoading(true);
-    try {
-      const params: ThreadListParams = {
-        cursor,
-        limit: 20,
-        modelProviders: null,
-      };
-      const response = await invoke<ThreadListResponse>("list_threads", {
-        params,
-      });
-      setThreadCursor(response.nextCursor);
-      setThreads((prev) =>
-        cursor ? [...prev, ...response.data] : response.data,
-      );
-    } catch (error) {
-      console.error("failed to list threads", error);
-    } finally {
-      setIsThreadLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     invoke("initialize_client").catch((error) =>
@@ -162,23 +91,6 @@ export default function ChatPage() {
       unlistenConversation.then((fn) => fn());
     };
   }, [addEvent]);
-
-  useEffect(() => {
-    const unlistenApprovals = listen<ApprovalRequestNotification>(
-      "codex://approval-request",
-      (event) => {
-        setApprovalRequests((prev) => [...prev, event.payload]);
-      },
-    );
-
-    return () => {
-      unlistenApprovals.then((fn) => fn());
-    };
-  }, []);
-
-  useEffect(() => {
-    loadThreads(null);
-  }, [loadThreads]);
 
   const handleResumeThread = useCallback(
     async (threadId: string) => {
@@ -201,26 +113,24 @@ export default function ChatPage() {
         const response = await invoke<ThreadResumeResponse>("resume_thread", {
           params,
         });
-        console.debug("resume", response)
+        console.debug("resume", response);
         const conversationId = response.thread.id;
-        setResumeStatus(`Resumed ${response.thread.preview || response.thread.id}`);
-        setConversationEvents(
-          conversationId,
-          threadToEvents(response.thread),
+        setResumeStatus(
+          `Resumed ${response.thread.preview || response.thread.id}`,
         );
+        setConversationEvents(conversationId, threadToEvents(response.thread));
         setActiveConversationId(conversationId);
         await invoke("add_conversation_listener", {
           conversationId,
         });
-        loadThreads(null);
       } catch (error) {
         console.error("failed to resume thread", error);
         setResumeStatus("Failed to resume thread.");
       } finally {
-        console.debug("resume", threadId)
+        console.debug("resume", threadId);
       }
     },
-    [loadThreads, setConversationEvents, setActiveConversationId],
+    [setConversationEvents, setActiveConversationId],
   );
 
   const handleThreadPreview = useCallback(
@@ -233,35 +143,6 @@ export default function ChatPage() {
       handleResumeThread(thread.id);
     },
     [activeConversationIds, handleResumeThread, setActiveConversationId],
-  );
-
-  const handleApprovalDecision = useCallback(
-    async (
-      requestId: string,
-      requestType: ApprovalRequestNotification["type"],
-      decision: ReviewDecisionType,
-    ) => {
-      setProcessingApprovalIds((prev) => [...prev, requestId]);
-
-      const command =
-        requestType === "exec_command"
-          ? "respond_exec_command_approval"
-          : "respond_apply_patch_approval";
-
-      try {
-        await invoke(command, { requestId, decision });
-        setApprovalRequests((prev) =>
-          prev.filter((request) => request.request_id !== requestId),
-        );
-      } catch (error) {
-        console.error("failed to respond to approval request", error);
-      } finally {
-        setProcessingApprovalIds((prev) =>
-          prev.filter((id) => id !== requestId),
-        );
-      }
-    },
-    [],
   );
 
   const buildConversationParams = (): NewConversationParams =>
@@ -322,10 +203,6 @@ export default function ChatPage() {
         className="flex h-full flex-col gap-3 border-r border-muted/20 bg-muted/10"
       >
         <ThreadSidebar
-          isThreadLoading={isThreadLoading}
-          loadThreads={loadThreads}
-          threadCursor={threadCursor}
-          threads={threads}
           resumeStatus={resumeStatus}
           onSelectThread={handleThreadPreview}
         />
@@ -333,25 +210,11 @@ export default function ChatPage() {
       <ResizableHandle withHandle />
       <ResizablePanel defaultSize={76} minSize={60}>
         <div className="flex h-full flex-col relative">
-          <Button
-            size="icon"
-            onClick={newConversation}
-          >
+          <Button size="icon" onClick={newConversation}>
             <PencilIcon />
           </Button>
           <div className="flex-1 flex flex-col gap-3 min-h-0">
-            {approvalRequests.length > 0 && (
-              <div className="space-y-3 px-4">
-                {approvalRequests.map((request) => (
-                  <ApprovalRequestCard
-                    key={request.request_id}
-                    request={request}
-                    onDecision={handleApprovalDecision}
-                    processing={processingApprovalIds.includes(request.request_id)}
-                  />
-                ))}
-              </div>
-            )}
+            <ApprovalRequestPanel />
             <ChatEvents events={events} />
           </div>
           {/* chat input  */}
@@ -366,80 +229,5 @@ export default function ChatPage() {
         </div>
       </ResizablePanel>
     </ResizablePanelGroup>
-  );
-}
-
-interface ApprovalRequestCardProps {
-  request: ApprovalRequestNotification;
-  processing: boolean;
-  onDecision: (
-    requestId: string,
-    requestType: ApprovalRequestNotification["type"],
-    decision: ReviewDecisionType,
-  ) => void;
-}
-
-function ApprovalRequestCard({
-  processing,
-  request,
-  onDecision,
-}: ApprovalRequestCardProps) {
-  const fileCount =
-    request.type === "apply_patch"
-      ? Object.keys(request.params.fileChanges ?? {}).length
-      : 0;
-  const commandLabel =
-    request.type === "exec_command"
-      ? request.params.command.join(" ")
-      : `${fileCount} file${fileCount === 1 ? "" : "s"}`;
-
-  return (
-    <div className="rounded-lg border bg-background p-4 shadow-sm shadow-muted/20">
-      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <span>
-          {request.type === "exec_command"
-            ? "Command execution approval"
-            : "Patch apply approval"}
-        </span>
-        <span className="text-[10px]">{request.params.callId}</span>
-      </div>
-      <p className="mt-1 text-sm font-medium break-words">
-        {commandLabel || "No details provided"}
-      </p>
-      {request.params.reason ? (
-        <p className="mt-1 text-xs text-muted-foreground">
-          Reason: {request.params.reason}
-        </p>
-      ) : null}
-      {request.type === "exec_command" && request.params.risk?.description ? (
-        <p className="mt-1 text-xs text-muted-foreground">
-          Risk: {request.params.risk.description}
-        </p>
-      ) : null}
-      {request.type === "apply_patch" && request.params.grantRoot ? (
-        <p className="mt-1 text-xs text-muted-foreground">
-          Grant root: {request.params.grantRoot}
-        </p>
-      ) : null}
-      <div className="mt-3 flex flex-wrap gap-2">
-            {APPROVAL_DECISIONS.map((decision) => (
-              <Button
-                key={decision.value}
-                size="sm"
-                variant={
-                  decision.value === "denied" || decision.value === "abort"
-                    ? "destructive"
-                    : "outline"
-                }
-                onClick={() =>
-                  onDecision(request.request_id, request.type, decision.value)
-                }
-                disabled={processing}
-              >
-                {decision.label}
-              </Button>
-            ))}
-      </div>
-    </div>
   );
 }

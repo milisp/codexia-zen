@@ -28,7 +28,6 @@ export function ChatEvents({ events }: ChatEventsProps) {
               return (
                 <div
                   key={index}
-                  className="rounded-md border bg-background p-3 shadow-sm"
                 >
                   <EventItem params={item} />
                 </div>
