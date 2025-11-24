@@ -30,7 +30,7 @@ pub fn run() {
             commands::add_conversation_listener,
             commands::send_user_message,
             commands::turn_interrupt,
-            commands::list_threads,
+
             commands::resume_thread,
             commands::respond_exec_command_approval,
             commands::respond_apply_patch_approval,

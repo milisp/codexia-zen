@@ -2,7 +2,7 @@ use tauri::{AppHandle, State, command};
 
 use codex_app_server_protocol::{
     AddConversationSubscriptionResponse, NewConversationParams, NewConversationResponse, RequestId,
-    ThreadListParams, ThreadListResponse, ThreadResumeParams, ThreadResumeResponse,
+    ThreadResumeParams, ThreadResumeResponse,
     TurnInterruptResponse,
 };
 use codex_protocol::ConversationId;
@@ -74,16 +74,6 @@ pub async fn turn_interrupt(
         .map_err(|err| err.to_string())
 }
 
-#[command]
-pub async fn list_threads(
-    state: State<'_, CodexClientManager>,
-    params: ThreadListParams,
-) -> Result<ThreadListResponse, String> {
-    state
-        .list_threads(params)
-        .await
-        .map_err(|err| err.to_string())
-}
 
 #[command]
 pub async fn resume_thread(
