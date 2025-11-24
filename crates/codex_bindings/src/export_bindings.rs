@@ -3,7 +3,8 @@ use codex_app_server_protocol::{
     ConversationSummary, ExecCommandApprovalParams, InitializeParams, InitializeResponse,
     InputItem, ListConversationsResponse, NewConversationParams, NewConversationResponse,
     SendUserMessageParams, SendUserMessageResponse, Thread, ThreadListParams,
-    ThreadListResponse, ThreadResumeParams, ThreadResumeResponse, Turn,
+    ThreadListResponse, ThreadResumeParams, ThreadResumeResponse,
+    Turn, TurnInterruptParams, TurnInterruptResponse
 };
 use codex_protocol::protocol::EventMsg;
 use std::path::Path;
@@ -39,4 +40,6 @@ pub fn export_ts_types() {
     ThreadResumeResponse::export_all_to(&out_dir).unwrap();
     Thread::export_all_to(&out_dir).unwrap();
     Turn::export_all_to(&out_dir).unwrap();
+    TurnInterruptParams::export_all_to(&out_dir).unwrap();
+    TurnInterruptResponse::export_all_to(&out_dir).unwrap();
 }

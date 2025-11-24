@@ -2,6 +2,20 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 type ReasoningEffort = "minimal" | "low" | "medium" | "high";
+export type isBusyOffMsgType =
+  | "task_complete"
+  | "error"
+  | "apply_patch_approval_request"
+  | "exec_approval_request"
+  | "turn_aborted";
+
+export const isBusyOffMsgTypes: isBusyOffMsgType[] = [
+  "task_complete",
+  "error",
+  "apply_patch_approval_request",
+  "exec_approval_request",
+  "turn_aborted",
+];
 
 interface CodexState {
   cwd: string | null;

@@ -8,39 +8,36 @@ import { PencilIcon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState, useCallback } from "react";
-import { useCodexStore } from "@/stores/useCodexStore";
+import { isBusyOffMsgTypes, useCodexStore } from "@/stores/useCodexStore";
 import { useActiveConversationStore } from "@/stores/useActiveConversationStore";
 import { useEventStore } from "@/stores/useEventStore";
-import type { Thread } from "@/bindings/v2/Thread";
-import type { ThreadResumeParams } from "@/bindings/v2/ThreadResumeParams";
-import type { ThreadResumeResponse } from "@/bindings/v2/ThreadResumeResponse";
 import type { NewConversationResponse } from "@/bindings/NewConversationResponse";
 import { StreamedEventNotification } from "@/types";
 import {
   ThreadSidebar,
   ChatEvents,
   ChatInput,
-  threadToEvents,
 } from "@/components/chat";
 import type { NewConversationParams } from "@/bindings/NewConversationParams";
 import { getNewConversationParams } from "@/components/codexConfig/ConversationParams";
 import { useSandboxStore } from "@/stores/useSandboxStore";
 import { ApprovalRequestPanel } from "@/components/chat/ApprovalRequestCard";
 export default function ChatPage() {
-  const { cwd } = useCodexStore();
-  const { mode, approvalPolicy } = useSandboxStore();
   const {
+    cwd,
     selectedModel,
     reasoningEffort,
     selectedProvider: selectedProviderName,
   } = useCodexStore();
+  const { mode, approvalPolicy } = useSandboxStore();
   const [prompt, setPrompt] = useState("");
-  const [sending, setSending] = useState(false);
-  const [resumeStatus, setResumeStatus] = useState<string | null>(null);
   const {
     activeConversationId,
-    activeConversationIds,
+    busyConversations,
+    currentTurnIds,
     setActiveConversationId,
+    setConversationBusy,
+    setCurrentTurnId,
   } = useActiveConversationStore();
 
   const { eventsByConversationId, appendEvent, setConversationEvents } =
@@ -56,6 +53,17 @@ export default function ChatPage() {
         return;
       }
       const { msg } = params;
+      setCurrentTurnId(params.conversationId, params.id);
+      if (isBusyOffMsgTypes.some((type) => type === msg.type)) {
+        console.debug(
+          "[chat] conversation event",
+          params.conversationId,
+          "off msg",
+          msg.type,
+        );
+        setConversationBusy(params.conversationId, false);
+        setCurrentTurnId(params.conversationId, null);
+      }
       if (
         msg.type.startsWith("item_") ||
         msg.type === "token_count" ||
@@ -72,7 +80,7 @@ export default function ChatPage() {
       appendEvent(params);
       setActiveConversationId(params.conversationId);
     },
-    [appendEvent, setActiveConversationId],
+    [appendEvent, setActiveConversationId, setConversationBusy],
   );
 
   useEffect(() => {
@@ -91,59 +99,6 @@ export default function ChatPage() {
       unlistenConversation.then((fn) => fn());
     };
   }, [addEvent]);
-
-  const handleResumeThread = useCallback(
-    async (threadId: string) => {
-      setResumeStatus(null);
-      setActiveConversationId(null);
-      try {
-        const params: ThreadResumeParams = {
-          threadId,
-          history: null,
-          path: null,
-          model: null,
-          modelProvider: null,
-          cwd: null,
-          approvalPolicy: null,
-          sandbox: null,
-          config: null,
-          baseInstructions: null,
-          developerInstructions: null,
-        };
-        const response = await invoke<ThreadResumeResponse>("resume_thread", {
-          params,
-        });
-        console.debug("resume", response);
-        const conversationId = response.thread.id;
-        setResumeStatus(
-          `Resumed ${response.thread.preview || response.thread.id}`,
-        );
-        setConversationEvents(conversationId, threadToEvents(response.thread));
-        setActiveConversationId(conversationId);
-        await invoke("add_conversation_listener", {
-          conversationId,
-        });
-      } catch (error) {
-        console.error("failed to resume thread", error);
-        setResumeStatus("Failed to resume thread.");
-      } finally {
-        console.debug("resume", threadId);
-      }
-    },
-    [setConversationEvents, setActiveConversationId],
-  );
-
-  const handleThreadPreview = useCallback(
-    (thread: Thread) => {
-      if (activeConversationIds.includes(thread.id)) {
-        setActiveConversationId(thread.id);
-        return;
-      }
-
-      handleResumeThread(thread.id);
-    },
-    [activeConversationIds, handleResumeThread, setActiveConversationId],
-  );
 
   const buildConversationParams = (): NewConversationParams =>
     getNewConversationParams(
@@ -181,20 +136,55 @@ export default function ChatPage() {
 
   const sendUserMessage = async () => {
     if (!prompt.trim()) return;
-    setSending(true);
+    let conversationId: string | null = null;
     try {
-      const conversationId = await ensureConversation();
+      conversationId = await ensureConversation();
+      console.debug("[chat] sending message for conversation", conversationId);
+      setCurrentTurnId(conversationId, null);
+      setConversationBusy(conversationId, true);
       await invoke("send_user_message", {
-        conversationId: conversationId,
+        conversationId,
         message: prompt,
       });
       setPrompt("");
     } catch (error) {
       console.error("failed to start conversation", error);
     } finally {
-      setSending(false);
+      if (conversationId) {
+        console.debug(
+          "[chat] clearing busy after send completion for conversation",
+          conversationId,
+        );
+        setConversationBusy(conversationId, false);
+      }
     }
   };
+
+  const interruptConversation = useCallback(async () => {
+    if (!activeConversationId) {
+      console.debug("[chat] interrupt requested with no active conversation");
+      return;
+    }
+    const turnId = currentTurnIds[activeConversationId] ?? "";
+    if (!turnId) {
+      return;
+    }
+    try {
+      await invoke("turn_interrupt", {
+        threadId: activeConversationId,
+        turnId,
+      });
+      setConversationBusy(activeConversationId, false);
+    } catch (error) {
+      setConversationBusy(activeConversationId, false);
+      console.error("failed to interrupt conversation", error);
+    }
+  }, [activeConversationId, currentTurnIds, setConversationBusy]);
+
+  const isBusy =
+    activeConversationId && busyConversations[activeConversationId]
+      ? true
+      : false;
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full w-screen">
@@ -202,10 +192,7 @@ export default function ChatPage() {
         defaultSize={24}
         className="flex h-full flex-col gap-3 border-r border-muted/20 bg-muted/10"
       >
-        <ThreadSidebar
-          resumeStatus={resumeStatus}
-          onSelectThread={handleThreadPreview}
-        />
+        <ThreadSidebar />
       </ResizablePanel>
       <ResizableHandle withHandle />
       <ResizablePanel defaultSize={76} minSize={60}>
@@ -223,7 +210,8 @@ export default function ChatPage() {
               prompt={prompt}
               onPromptChange={setPrompt}
               onSend={sendUserMessage}
-              sending={sending}
+              onInterrupt={interruptConversation}
+              isBusy={isBusy}
             />
           </div>
         </div>

@@ -52,6 +52,7 @@ export const ProviderModelSelector: React.FC = () => {
 
   const [open, setOpen] = useState(false);
   const [newModel, setNewModel] = useState("");
+  const [providersLoaded, setProvidersLoaded] = useState(false);
 
   useEffect(() => {
     const loadProviders = async () => {
@@ -70,6 +71,8 @@ export const ProviderModelSelector: React.FC = () => {
         });
       } catch (error) {
         console.error("failed to load provider config", error);
+      } finally {
+        setProvidersLoaded(true);
       }
     };
 
@@ -77,7 +80,7 @@ export const ProviderModelSelector: React.FC = () => {
   }, [ensureProviderModels, setProviders]);
 
   useEffect(() => {
-    if (!providers.length) {
+    if (!providersLoaded || !providers.length) {
       return;
     }
     if (
@@ -86,7 +89,7 @@ export const ProviderModelSelector: React.FC = () => {
     ) {
       setSelectedProvider(providers[0]);
     }
-  }, [providers, selectedProvider, setSelectedProvider]);
+  }, [providersLoaded, providers, selectedProvider, setSelectedProvider]);
 
   useEffect(() => {
     providers

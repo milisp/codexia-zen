@@ -1,6 +1,6 @@
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
+import { Send, CircleStop } from "lucide-react";
 import { Sandbox, ReasoningEffortSelector, ProviderModelSelector } from "../codexConfig";
 import type { KeyboardEvent } from "react";
 
@@ -8,24 +8,45 @@ interface ChatInputProps {
   prompt: string;
   onPromptChange: (value: string) => void;
   onSend: () => void;
-  sending: boolean;
+  onInterrupt?: () => void;
+  isBusy: boolean;
 }
 
 export function ChatInput({
   prompt,
   onPromptChange,
   onSend,
-  sending,
+  onInterrupt,
+  isBusy,
 }: ChatInputProps) {
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (!prompt.trim() || sending) {
+      if (!prompt.trim() || isBusy) {
+        console.debug("chat input submit blocked", {
+          promptLength: prompt.trim().length,
+          isBusy,
+        });
         return;
       }
       onSend();
     }
   };
+
+  const handleClick = () => {
+    console.debug("chat input clicked", { isBusy, promptLength: prompt.trim().length });
+    if (isBusy) {
+      console.info("chat input interrupt requested");
+      onInterrupt?.();
+      return;
+    }
+    if (!prompt.trim()) {
+      return;
+    }
+    onSend();
+  };
+
+  const isButtonDisabled = isBusy ? false : !prompt.trim();
 
   return (
     <>
@@ -39,10 +60,10 @@ export function ChatInput({
         />
         <Button
           size="icon"
-          onClick={onSend}
-          disabled={!prompt.trim() || sending}
+          onClick={handleClick}
+          disabled={isButtonDisabled}
         >
-          <Send />
+          {isBusy ? <CircleStop className="h-4 w-4" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>
       <div className="flex items-center px-4">

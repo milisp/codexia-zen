@@ -204,7 +204,7 @@ checksum = "a1d728cc89cf3aee9ff92b05e62b19ee65a02b5702cff7d5a377e32c6ae29d8d"
 [[package]]
 name = "codex-app-server-protocol"
 version = "0.0.0"
-source = "git+https://github.com/openai/codex.git#bce030ddb5d0c428aeb909d961a2d5641695c06c"
+source = "git+https://github.com/openai/codex.git#b519267d05459095eccb9767c28550a2952d8a2f"
 dependencies = [
  "anyhow",
  "clap",
@@ -222,7 +222,7 @@ dependencies = [
 [[package]]
 name = "codex-git"
 version = "0.0.0"
-source = "git+https://github.com/openai/codex.git#bce030ddb5d0c428aeb909d961a2d5641695c06c"
+source = "git+https://github.com/openai/codex.git#b519267d05459095eccb9767c28550a2952d8a2f"
 dependencies = [
  "once_cell",
  "regex",
@@ -237,7 +237,7 @@ dependencies = [
 [[package]]
 name = "codex-protocol"
 version = "0.0.0"
-source = "git+https://github.com/openai/codex.git#bce030ddb5d0c428aeb909d961a2d5641695c06c"
+source = "git+https://github.com/openai/codex.git#b519267d05459095eccb9767c28550a2952d8a2f"
 dependencies = [
  "base64",
  "codex-git",
@@ -262,7 +262,7 @@ dependencies = [
 [[package]]
 name = "codex-utils-cache"
 version = "0.0.0"
-source = "git+https://github.com/openai/codex.git#bce030ddb5d0c428aeb909d961a2d5641695c06c"
+source = "git+https://github.com/openai/codex.git#b519267d05459095eccb9767c28550a2952d8a2f"
 dependencies = [
  "lru",
  "sha1",
@@ -272,7 +272,7 @@ dependencies = [
 [[package]]
 name = "codex-utils-image"
 version = "0.0.0"
-source = "git+https://github.com/openai/codex.git#bce030ddb5d0c428aeb909d961a2d5641695c06c"
+source = "git+https://github.com/openai/codex.git#b519267d05459095eccb9767c28550a2952d8a2f"
 dependencies = [
  "base64",
  "codex-utils-cache",
@@ -742,7 +742,7 @@ dependencies = [
 [[package]]
 name = "mcp-types"
 version = "0.0.0"
-source = "git+https://github.com/openai/codex.git#bce030ddb5d0c428aeb909d961a2d5641695c06c"
+source = "git+https://github.com/openai/codex.git#b519267d05459095eccb9767c28550a2952d8a2f"
 dependencies = [
  "schemars 0.8.22",
  "serde",
@@ -1165,9 +1165,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.110"
+version = "2.0.111"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a99801b5bd34ede4cf3fc688c5919368fea4e4814a4664359503e6015b280aea"
+checksum = "390cc9a294ab71bdb1aa2e99d13be9c753cd2d7bd6560c77118597410c4d2e87"
 dependencies = [
  "proc-macro2",
  "quote",

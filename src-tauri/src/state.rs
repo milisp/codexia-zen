@@ -4,8 +4,8 @@ use std::pin::Pin;
 use anyhow::{Context, Result};
 use tokio::sync::Mutex;
 
-use crate::codex_client::CodexClient;
 use codex_bindings::codex_discovery::discover_codex_command;
+use crate::agent::codex::CodexClient;
 
 /// Shared Codex client state to keep spawn/initialize logic in one place.
 pub struct ClientState {

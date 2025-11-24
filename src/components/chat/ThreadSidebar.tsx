@@ -5,21 +5,22 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Thread } from "@/bindings/v2/Thread";
 import type { ThreadListParams } from "@/bindings/v2/ThreadListParams";
 import type { ThreadListResponse } from "@/bindings/v2/ThreadListResponse";
+import type { ThreadResumeParams } from "@/bindings/v2/ThreadResumeParams";
+import type { ThreadResumeResponse } from "@/bindings/v2/ThreadResumeResponse";
 import { invoke } from "@tauri-apps/api/core";
 import { RotateCw } from "lucide-react";
+import { threadToEvents } from "./utils";
+import { useActiveConversationStore } from "@/stores/useActiveConversationStore";
+import { useEventStore } from "@/stores/useEventStore";
 
-interface ThreadSidebarProps {
-  resumeStatus: string | null;
-  onSelectThread: (thread: Thread) => void;
-}
-
-export function ThreadSidebar({
-  resumeStatus,
-  onSelectThread,
-}: ThreadSidebarProps) {
+export function ThreadSidebar() {
+  const { activeConversationIds, setActiveConversationId } =
+    useActiveConversationStore();
+  const { setConversationEvents } = useEventStore();
   const [isThreadLoading, setIsThreadLoading] = useState(false);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [threadCursor, setThreadCursor] = useState<string | null>(null);
+  const [resumeStatus, setResumeStatus] = useState<string | null>(null);
 
   const loadThreads = useCallback(async (cursor: string | null = null) => {
     setIsThreadLoading(true);
@@ -53,6 +54,59 @@ export function ThreadSidebar({
     }
   }, [loadThreads, resumeStatus]);
 
+  const handleResumeThread = useCallback(
+    async (threadId: string) => {
+      setResumeStatus(null);
+      setActiveConversationId(null);
+      try {
+        const params: ThreadResumeParams = {
+          threadId,
+          history: null,
+          path: null,
+          model: null,
+          modelProvider: null,
+          cwd: null,
+          approvalPolicy: null,
+          sandbox: null,
+          config: null,
+          baseInstructions: null,
+          developerInstructions: null,
+        };
+        const response = await invoke<ThreadResumeResponse>("resume_thread", {
+          params,
+        });
+        console.debug("resume", response);
+        const conversationId = response.thread.id;
+        setResumeStatus(
+          `Resumed ${response.thread.preview || response.thread.id}`,
+        );
+        setConversationEvents(conversationId, threadToEvents(response.thread));
+        setActiveConversationId(conversationId);
+        await invoke("add_conversation_listener", {
+          conversationId,
+        });
+      } catch (error) {
+        console.error("failed to resume thread", error);
+        setResumeStatus("Failed to resume thread.");
+      } finally {
+        console.debug("resume", threadId);
+      }
+    },
+    [setActiveConversationId, setConversationEvents],
+  );
+
+  const handleThreadPreview = useCallback(
+    (thread: Thread) => {
+      if (activeConversationIds.includes(thread.id)) {
+        setActiveConversationId(thread.id);
+        return;
+      }
+
+      handleResumeThread(thread.id);
+    },
+    [activeConversationIds, handleResumeThread, setActiveConversationId],
+  );
+
   return (
     <>
       <div className="flex items-center justify-end">
@@ -82,7 +136,7 @@ export function ThreadSidebar({
                 <button
                   type="button"
                   className="min-w-64 max-w-96 text-left text-sm hover:bg-gray-200"
-                  onClick={() => onSelectThread(thread)}
+                  onClick={() => handleThreadPreview(thread)}
                 >
                   {thread.preview || "Untitled thread"}
                 </button>

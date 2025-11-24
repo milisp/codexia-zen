@@ -1,6 +1,6 @@
 use tauri_plugin_log::log;
 
-mod codex_client;
+mod agent;
 mod commands;
 mod config;
 mod state;
@@ -20,7 +20,7 @@ pub fn run() {
 
             Ok(())
         })
-        .manage(codex_client::CodexClientManager::default())
+        .manage(agent::codex::CodexClientManager::default())
         .invoke_handler(tauri::generate_handler![
             config::read_codex_config,
             config::read_providers,
@@ -29,6 +29,7 @@ pub fn run() {
             commands::new_conversation,
             commands::add_conversation_listener,
             commands::send_user_message,
+            commands::turn_interrupt,
             commands::list_threads,
             commands::resume_thread,
             commands::respond_exec_command_approval,

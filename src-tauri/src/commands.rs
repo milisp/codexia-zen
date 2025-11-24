@@ -1,12 +1,13 @@
 use tauri::{AppHandle, State, command};
 
-use crate::codex_client::{CodexClientManager, TurnHandles};
 use codex_app_server_protocol::{
-    AddConversationSubscriptionResponse, NewConversationParams, NewConversationResponse,
-    RequestId, ThreadListParams, ThreadListResponse, ThreadResumeParams, ThreadResumeResponse,
+    AddConversationSubscriptionResponse, NewConversationParams, NewConversationResponse, RequestId,
+    ThreadListParams, ThreadListResponse, ThreadResumeParams, ThreadResumeResponse,
+    TurnInterruptResponse,
 };
 use codex_protocol::ConversationId;
 use codex_protocol::protocol::ReviewDecision;
+use crate::agent::codex::{CodexClientManager, TurnHandles};
 
 #[command]
 pub async fn run_turn(
@@ -57,6 +58,18 @@ pub async fn send_user_message(
 ) -> Result<(), String> {
     state
         .send_user_message(app, conversation_id, message)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+#[command]
+pub async fn turn_interrupt(
+    state: State<'_, CodexClientManager>,
+    thread_id: ConversationId,
+    turn_id: String,
+) -> Result<TurnInterruptResponse, String> {
+    state
+        .turn_interrupt(thread_id, turn_id)
         .await
         .map_err(|err| err.to_string())
 }
