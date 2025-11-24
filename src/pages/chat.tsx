@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PencilIcon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { isBusyOffMsgTypes, useCodexStore } from "@/stores/useCodexStore";
 import { useActiveConversationStore } from "@/stores/useActiveConversationStore";
 import { useEventStore } from "@/stores/useEventStore";
@@ -42,18 +42,37 @@ export default function ChatPage() {
 
   const { eventsByConversationId, appendEvent, setConversationEvents } =
     useEventStore();
+  const ensuringConversation = useRef<Promise<string> | null>(null);
+  const pendingInterrupts = useRef<Set<string>>(new Set());
   const events = activeConversationId
     ? (eventsByConversationId[activeConversationId] ?? [])
     : [];
 
   const addEvent = useCallback(
-    (notification: StreamedEventNotification) => {
+    async (notification: StreamedEventNotification) => {
       const { params } = notification;
       if (!params.conversationId || !params.id || !params.msg) {
         return;
       }
       const { msg } = params;
-      setCurrentTurnId(params.conversationId, params.id);
+      const turnIdFromMsg =
+        "turn_id" in msg && typeof msg.turn_id === "string" ? msg.turn_id : null;
+      if (turnIdFromMsg) {
+        setCurrentTurnId(params.conversationId, turnIdFromMsg);
+      }
+      if (turnIdFromMsg && pendingInterrupts.current.has(params.conversationId)) {
+        pendingInterrupts.current.delete(params.conversationId);
+        try {
+          await invoke("turn_interrupt", {
+            threadId: params.conversationId,
+            turnId: turnIdFromMsg,
+          });
+          setConversationBusy(params.conversationId, false);
+          setCurrentTurnId(params.conversationId, null);
+        } catch (error) {
+          console.error("failed to deliver pending interrupt", error);
+        }
+      }
       if (isBusyOffMsgTypes.some((type) => type === msg.type)) {
         console.debug(
           "[chat] conversation event",
@@ -80,7 +99,7 @@ export default function ChatPage() {
       appendEvent(params);
       setActiveConversationId(params.conversationId);
     },
-    [appendEvent, setActiveConversationId, setConversationBusy],
+    [appendEvent, setActiveConversationId, setConversationBusy, setCurrentTurnId],
   );
 
   useEffect(() => {
@@ -95,10 +114,45 @@ export default function ChatPage() {
       },
     );
 
+    const unlistenTurn = listen<{ conversationId: string; turnId: string }>(
+      "codex://turn-event",
+      async (event) => {
+        const { conversationId, turnId } = event.payload ?? {};
+        if (!conversationId || !turnId) {
+          return;
+        }
+        setCurrentTurnId(conversationId, turnId);
+        if (pendingInterrupts.current.has(conversationId)) {
+          pendingInterrupts.current.delete(conversationId);
+          try {
+            await invoke("turn_interrupt", { threadId: conversationId, turnId });
+            setConversationBusy(conversationId, false);
+            setCurrentTurnId(conversationId, null);
+          } catch (error) {
+            console.error("failed to deliver pending interrupt", error);
+          }
+        }
+      },
+    );
+
     return () => {
       unlistenConversation.then((fn) => fn());
+      unlistenTurn.then((fn) => fn());
     };
-  }, [addEvent]);
+  }, [addEvent, setConversationBusy, setCurrentTurnId]);
+
+  useEffect(() => {
+    if (activeConversationId) {
+      invoke("add_conversation_listener", {
+        conversationId: activeConversationId,
+      }).catch((error) =>
+        console.error(
+          `failed to add listener for conversation ${activeConversationId}`,
+          error,
+        ),
+      );
+    }
+  }, [activeConversationId]);
 
   const buildConversationParams = (): NewConversationParams =>
     getNewConversationParams(
@@ -116,17 +170,29 @@ export default function ChatPage() {
     if (activeConversationId) {
       return activeConversationId;
     }
-    const params = buildConversationParams();
-    const conversation = await invoke<NewConversationResponse>(
-      "new_conversation",
-      { params },
-    );
-    setConversationEvents(conversation.conversationId, []);
-    setActiveConversationId(conversation.conversationId);
-    await invoke("add_conversation_listener", {
-      conversationId: conversation.conversationId,
-    });
-    return conversation.conversationId;
+
+    if (ensuringConversation.current) {
+      return ensuringConversation.current;
+    }
+
+    const creationPromise = (async () => {
+      const params = buildConversationParams();
+      const conversation = await invoke<NewConversationResponse>(
+        "new_conversation",
+        { params },
+      );
+      setConversationEvents(conversation.conversationId, []);
+      setActiveConversationId(conversation.conversationId);
+      return conversation.conversationId;
+    })();
+
+    ensuringConversation.current = creationPromise;
+
+    try {
+      return await creationPromise;
+    } finally {
+      ensuringConversation.current = null;
+    }
   };
 
   const newConversation = async () => {
@@ -148,15 +214,11 @@ export default function ChatPage() {
       });
       setPrompt("");
     } catch (error) {
-      console.error("failed to start conversation", error);
-    } finally {
       if (conversationId) {
-        console.debug(
-          "[chat] clearing busy after send completion for conversation",
-          conversationId,
-        );
         setConversationBusy(conversationId, false);
+        setCurrentTurnId(conversationId, null);
       }
+      console.error("failed to start conversation", error);
     }
   };
 
@@ -166,7 +228,15 @@ export default function ChatPage() {
       return;
     }
     const turnId = currentTurnIds[activeConversationId] ?? "";
+
     if (!turnId) {
+      console.debug(
+        "[chat] interrupt requested but no current turn id; clearing busy state",
+        { conversationId: activeConversationId },
+      );
+      pendingInterrupts.current.add(activeConversationId);
+      setConversationBusy(activeConversationId, false);
+      setCurrentTurnId(activeConversationId, null);
       return;
     }
     try {
@@ -174,12 +244,14 @@ export default function ChatPage() {
         threadId: activeConversationId,
         turnId,
       });
+      // Now set busy state to false and turnId to null AFTER successful interrupt
       setConversationBusy(activeConversationId, false);
+      setCurrentTurnId(activeConversationId, null);
+      pendingInterrupts.current.delete(activeConversationId);
     } catch (error) {
-      setConversationBusy(activeConversationId, false);
       console.error("failed to interrupt conversation", error);
     }
-  }, [activeConversationId, currentTurnIds, setConversationBusy]);
+  }, [activeConversationId, currentTurnIds, setConversationBusy, setCurrentTurnId]);
 
   const isBusy =
     activeConversationId && busyConversations[activeConversationId]
@@ -212,6 +284,7 @@ export default function ChatPage() {
               onSend={sendUserMessage}
               onInterrupt={interruptConversation}
               isBusy={isBusy}
+              conversationId={activeConversationId}
             />
           </div>
         </div>

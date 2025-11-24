@@ -10,6 +10,7 @@ interface ChatInputProps {
   onSend: () => void;
   onInterrupt?: () => void;
   isBusy: boolean;
+  conversationId: string | null;
 }
 
 export function ChatInput({
@@ -18,6 +19,7 @@ export function ChatInput({
   onSend,
   onInterrupt,
   isBusy,
+  conversationId,
 }: ChatInputProps) {
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -26,6 +28,7 @@ export function ChatInput({
         console.debug("chat input submit blocked", {
           promptLength: prompt.trim().length,
           isBusy,
+          conversationId,
         });
         return;
       }
@@ -34,7 +37,11 @@ export function ChatInput({
   };
 
   const handleClick = () => {
-    console.debug("chat input clicked", { isBusy, promptLength: prompt.trim().length });
+    console.debug("chat input clicked", {
+      isBusy,
+      promptLength: prompt.trim().length,
+      conversationId,
+    });
     if (isBusy) {
       console.info("chat input interrupt requested");
       onInterrupt?.();

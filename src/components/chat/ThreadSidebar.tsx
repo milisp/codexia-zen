@@ -18,11 +18,29 @@ export function ThreadSidebar() {
     useActiveConversationStore();
   const { setConversationEvents } = useEventStore();
   const [isThreadLoading, setIsThreadLoading] = useState(false);
+  const [threadError, setThreadError] = useState<string | null>(null);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [threadCursor, setThreadCursor] = useState<string | null>(null);
   const [resumeStatus, setResumeStatus] = useState<string | null>(null);
 
   const loadThreads = useCallback(async (cursor: string | null = null) => {
+    const withTimeout = <T,>(promise: Promise<T>, ms: number) =>
+      new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          reject(new Error("list threads timeout"));
+        }, ms);
+        promise
+          .then((value) => {
+            clearTimeout(timer);
+            resolve(value);
+          })
+          .catch((error) => {
+            clearTimeout(timer);
+            reject(error);
+          });
+      });
+
+    setThreadError(null);
     setIsThreadLoading(true);
     try {
       const params: ThreadListParams = {
@@ -30,15 +48,22 @@ export function ThreadSidebar() {
         limit: 20,
         modelProviders: null,
       };
-      const response = await invoke<ThreadListResponse>("list_threads", {
-        params,
-      });
-      setThreadCursor(response.nextCursor);
+      const response = await withTimeout(
+        invoke<ThreadListResponse>("list_threads", {
+          params,
+        }),
+        8000,
+      );
+      setThreadCursor(response.nextCursor ?? null);
       setThreads((prev) =>
         cursor ? [...prev, ...response.data] : response.data,
       );
     } catch (error) {
       console.error("failed to list threads", error);
+      const message = error instanceof Error ? error.message : "failed to load threads";
+      setThreadError(message);
+      setThreadCursor(null);
+      setThreads([]);
     } finally {
       setIsThreadLoading(false);
     }
@@ -121,7 +146,19 @@ export function ThreadSidebar() {
       </div>
       <ScrollArea className="flex-1 overflow-hidden rounded-md border border-border bg-background">
         <div className="space-y-2 p-2">
-          {isThreadLoading && threads.length === 0 ? (
+          {threadError ? (
+            <div className="flex flex-col gap-2 text-xs text-destructive">
+              <p>Failed to load threads: {threadError}</p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => loadThreads(null)}
+                disabled={isThreadLoading}
+              >
+                Retry
+              </Button>
+            </div>
+          ) : isThreadLoading && threads.length === 0 ? (
             <p className="text-xs text-muted-foreground">Loading threads…</p>
           ) : threads.length === 0 ? (
             <p className="text-xs text-muted-foreground">
