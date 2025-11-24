@@ -3,9 +3,10 @@ use tauri::{AppHandle, State, command};
 use crate::codex_client::{CodexClientManager, TurnHandles};
 use codex_app_server_protocol::{
     AddConversationSubscriptionResponse, NewConversationParams, NewConversationResponse,
-    ThreadListParams, ThreadListResponse, ThreadResumeParams, ThreadResumeResponse,
+    RequestId, ThreadListParams, ThreadListResponse, ThreadResumeParams, ThreadResumeResponse,
 };
 use codex_protocol::ConversationId;
+use codex_protocol::protocol::ReviewDecision;
 
 #[command]
 pub async fn run_turn(
@@ -80,4 +81,42 @@ pub async fn resume_thread(
         .resume_thread(params)
         .await
         .map_err(|err| err.to_string())
+}
+
+#[command]
+pub async fn respond_exec_command_approval(
+    state: State<'_, CodexClientManager>,
+    request_id: String,
+    decision: String,
+) -> Result<(), String> {
+    let request_id = RequestId::String(request_id);
+    let decision = parse_review_decision(&decision)?;
+    state
+        .respond_exec_approval(request_id, decision)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+#[command]
+pub async fn respond_apply_patch_approval(
+    state: State<'_, CodexClientManager>,
+    request_id: String,
+    decision: String,
+) -> Result<(), String> {
+    let request_id = RequestId::String(request_id);
+    let decision = parse_review_decision(&decision)?;
+    state
+        .respond_patch_approval(request_id, decision)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+fn parse_review_decision(value: &str) -> Result<ReviewDecision, String> {
+    match value {
+        "approved" => Ok(ReviewDecision::Approved),
+        "approved_for_session" => Ok(ReviewDecision::ApprovedForSession),
+        "denied" => Ok(ReviewDecision::Denied),
+        "abort" => Ok(ReviewDecision::Abort),
+        other => Err(format!("unsupported review decision: {other}")),
+    }
 }

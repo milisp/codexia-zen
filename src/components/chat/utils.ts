@@ -62,3 +62,17 @@ export function convertThreadItemToEventMsg(
       return null;
   }
 }
+
+export const getEventKey = (params: StreamedEventNotification["params"]): string => {
+  const { msg } = params;
+
+  if ("item_id" in msg) {
+    return `${msg.item_id}-${msg.type}`;
+  }
+
+  if ("call_id" in msg) {
+    return `${msg.call_id}-${msg.type}`;
+  }
+
+  return `${params.id}-${msg.type}`;
+};

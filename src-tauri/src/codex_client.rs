@@ -1,10 +1,10 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
 
 use crate::state::ClientState;
-use anyhow::{Context, Result, bail};
+use anyhow::{anyhow, bail, Context, Result};
 use codex_app_server_protocol::{
     AddConversationListenerParams, AddConversationSubscriptionResponse, ApplyPatchApprovalParams,
     ApplyPatchApprovalResponse, ApprovalDecision, ClientInfo, ClientRequest,
@@ -24,6 +24,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter};
+use tokio::sync::oneshot;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use uuid::Uuid;
@@ -31,6 +32,20 @@ use uuid::Uuid;
 const EVENT_TOPIC: &str = "codex://notification";
 const RAW_EVENT_TOPIC: &str = "codex://raw-notification";
 const CONVERSATION_EVENT_TOPIC: &str = "codex://conversation-event";
+const APPROVAL_REQUEST_TOPIC: &str = "codex://approval-request";
+
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ApprovalRequestNotificationMessage {
+    ExecCommand {
+        request_id: RequestId,
+        params: ExecCommandApprovalParams,
+    },
+    ApplyPatch {
+        request_id: RequestId,
+        params: ApplyPatchApprovalParams,
+    },
+}
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct TurnHandles {
@@ -84,6 +99,30 @@ impl CodexClientManager {
                     client.send_user_message(&conversation_id, &message).await?;
                     client.stream_conversation(&app, &conversation_id).await
                 })
+            })
+            .await
+    }
+
+    pub async fn respond_exec_approval(
+        &self,
+        request_id: RequestId,
+        decision: ReviewDecision,
+    ) -> Result<()> {
+        self.state
+            .with_ready_client(|client| {
+                Box::pin(async move { client.respond_exec_approval(request_id, decision) })
+            })
+            .await
+    }
+
+    pub async fn respond_patch_approval(
+        &self,
+        request_id: RequestId,
+        decision: ReviewDecision,
+    ) -> Result<()> {
+        self.state
+            .with_ready_client(|client| {
+                Box::pin(async move { client.respond_patch_approval(request_id, decision) })
             })
             .await
     }
@@ -146,6 +185,8 @@ pub(crate) struct CodexClient {
     stdout: BufReader<ChildStdout>,
     pending_notifications: VecDeque<JSONRPCNotification>,
     initialized: bool,
+    pending_exec_approvals: HashMap<RequestId, oneshot::Sender<ReviewDecision>>,
+    pending_patch_approvals: HashMap<RequestId, oneshot::Sender<ReviewDecision>>,
 }
 
 impl CodexClient {
@@ -173,6 +214,8 @@ impl CodexClient {
             stdout: BufReader::new(stdout),
             pending_notifications: VecDeque::new(),
             initialized: false,
+            pending_exec_approvals: HashMap::new(),
+            pending_patch_approvals: HashMap::new(),
         })
     }
 
@@ -297,7 +340,7 @@ impl CodexClient {
 
     async fn stream_turn(&mut self, app: &AppHandle, thread_id: &str, turn_id: &str) -> Result<()> {
         loop {
-            let notification = self.next_notification().await?;
+            let notification = self.next_notification(Some(app)).await?;
 
             if let Ok(server_notification) = ServerNotification::try_from(notification.clone()) {
                 app.emit(EVENT_TOPIC, &server_notification)
@@ -343,7 +386,7 @@ impl CodexClient {
         conversation_id: &ConversationId,
     ) -> Result<()> {
         loop {
-            let notification = self.next_notification().await?;
+            let notification = self.next_notification(Some(app)).await?;
 
             if !notification.method.starts_with("codex/event/") {
                 continue;
@@ -451,13 +494,16 @@ impl CodexClient {
                     self.pending_notifications.push_back(notification);
                 }
                 JSONRPCMessage::Request(request) => {
-                    self.handle_server_request(request).await?;
+                    self.handle_server_request(request, None).await?;
                 }
             }
         }
     }
 
-    async fn next_notification(&mut self) -> Result<JSONRPCNotification> {
+    async fn next_notification(
+        &mut self,
+        app: Option<&AppHandle>,
+    ) -> Result<JSONRPCNotification> {
         if let Some(notification) = self.pending_notifications.pop_front() {
             return Ok(notification);
         }
@@ -471,7 +517,7 @@ impl CodexClient {
                     continue;
                 }
                 JSONRPCMessage::Request(request) => {
-                    self.handle_server_request(request).await?;
+                    self.handle_server_request(request, app).await?;
                 }
             }
         }
@@ -508,7 +554,11 @@ impl CodexClient {
         RequestId::String(Uuid::new_v4().to_string())
     }
 
-    async fn handle_server_request(&mut self, request: JSONRPCRequest) -> Result<()> {
+    async fn handle_server_request(
+        &mut self,
+        request: JSONRPCRequest,
+        app: Option<&AppHandle>,
+    ) -> Result<()> {
         let server_request = ServerRequest::try_from(request)
             .context("failed to deserialize ServerRequest from JSONRPCRequest")?;
 
@@ -522,11 +572,11 @@ impl CodexClient {
                     .await?;
             }
             ServerRequest::ExecCommandApproval { request_id, params } => {
-                self.handle_exec_command_approval(request_id, params)
+                self.handle_exec_command_approval(request_id, params, app)
                     .await?;
             }
             ServerRequest::ApplyPatchApproval { request_id, params } => {
-                self.handle_apply_patch_approval(request_id, params).await?;
+                self.handle_apply_patch_approval(request_id, params, app).await?;
             }
         }
 
@@ -556,17 +606,39 @@ impl CodexClient {
         &mut self,
         request_id: RequestId,
         params: ExecCommandApprovalParams,
+        app: Option<&AppHandle>,
     ) -> Result<()> {
         info!(
             "exec approval requested for conversation {} command {:?}",
             params.conversation_id, params.command
         );
 
-        let response = ExecCommandApprovalResponse {
-            decision: ReviewDecision::Approved,
+        let (sender, receiver) = oneshot::channel();
+        self.pending_exec_approvals
+            .insert(request_id.clone(), sender);
+
+        let payload = ApprovalRequestNotificationMessage::ExecCommand {
+            request_id: request_id.clone(),
+            params,
         };
-        self.send_server_request_response(request_id, &response)
-            .await?;
+        if let Some(app) = app {
+            app.emit(APPROVAL_REQUEST_TOPIC, &payload)
+                .context("failed to emit exec approval request")?;
+        }
+
+        let decision = match receiver.await {
+            Ok(decision) => decision,
+            Err(_) => {
+                warn!(
+                    "exec approval response receiver dropped for request {request_id:?}; defaulting to Denied"
+                );
+                let _ = self.pending_exec_approvals.remove(&request_id);
+                ReviewDecision::Denied
+            }
+        };
+
+        let response = ExecCommandApprovalResponse { decision };
+        self.send_server_request_response(request_id, &response).await?;
         Ok(())
     }
 
@@ -574,17 +646,40 @@ impl CodexClient {
         &mut self,
         request_id: RequestId,
         params: ApplyPatchApprovalParams,
+        app: Option<&AppHandle>,
     ) -> Result<()> {
         info!(
             "apply_patch approval requested for conversation {} ({} files)",
             params.conversation_id,
             params.file_changes.len()
         );
-        let response = ApplyPatchApprovalResponse {
-            decision: ReviewDecision::Approved,
+
+        let (sender, receiver) = oneshot::channel();
+        self.pending_patch_approvals
+            .insert(request_id.clone(), sender);
+
+        let payload = ApprovalRequestNotificationMessage::ApplyPatch {
+            request_id: request_id.clone(),
+            params,
         };
-        self.send_server_request_response(request_id, &response)
-            .await?;
+        if let Some(app) = app {
+            app.emit(APPROVAL_REQUEST_TOPIC, &payload)
+                .context("failed to emit apply patch approval request")?;
+        }
+
+        let decision = match receiver.await {
+            Ok(decision) => decision,
+            Err(_) => {
+                warn!(
+                    "apply_patch approval response receiver dropped for request {request_id:?}; defaulting to Denied"
+                );
+                let _ = self.pending_patch_approvals.remove(&request_id);
+                ReviewDecision::Denied
+            }
+        };
+
+        let response = ApplyPatchApprovalResponse { decision };
+        self.send_server_request_response(request_id, &response).await?;
         Ok(())
     }
 
@@ -602,6 +697,36 @@ impl CodexClient {
         };
         self.send_server_request_response(request_id, &response)
             .await?;
+        Ok(())
+    }
+
+    fn respond_exec_approval(
+        &mut self,
+        request_id: RequestId,
+        decision: ReviewDecision,
+    ) -> Result<()> {
+        let sender = self
+            .pending_exec_approvals
+            .remove(&request_id)
+            .context("exec approval request not found")?;
+        sender
+            .send(decision)
+            .map_err(|_| anyhow!("exec approval response receiver dropped"))?;
+        Ok(())
+    }
+
+    fn respond_patch_approval(
+        &mut self,
+        request_id: RequestId,
+        decision: ReviewDecision,
+    ) -> Result<()> {
+        let sender = self
+            .pending_patch_approvals
+            .remove(&request_id)
+            .context("patch approval request not found")?;
+        sender
+            .send(decision)
+            .map_err(|_| anyhow!("patch approval response receiver dropped"))?;
         Ok(())
     }
 
