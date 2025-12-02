@@ -16,29 +16,26 @@ impl CodexClient {
         &mut self,
         params: NewConversationParams,
     ) -> Result<NewConversationResponse> {
-        let request_id = self.request_id();
         let request = ClientRequest::NewConversation {
-            request_id: request_id.clone(),
+            request_id: self.request_id(),
             params,
         };
 
-        self.send_request(request, request_id, "newConversation")
-            .await
+        self.send_request(request, "newConversation").await
     }
 
     pub(crate) async fn add_conversation_listener(
         &mut self,
         conversation_id: &ConversationId,
     ) -> Result<AddConversationSubscriptionResponse> {
-        let request_id = self.request_id();
         let request = ClientRequest::AddConversationListener {
-            request_id: request_id.clone(),
+            request_id: self.request_id(),
             params: AddConversationListenerParams {
                 conversation_id: *conversation_id,
                 experimental_raw_events: false,
             },
         };
-        self.send_request(request, request_id, "addConversationListener")
+        self.send_request(request, "addConversationListener")
             .await
     }
 
@@ -47,9 +44,8 @@ impl CodexClient {
         conversation_id: &ConversationId,
         message: &str,
     ) -> Result<()> {
-        let request_id = self.request_id();
         let request = ClientRequest::SendUserMessage {
-            request_id: request_id.clone(),
+            request_id: self.request_id(),
             params: SendUserMessageParams {
                 conversation_id: *conversation_id,
                 items: vec![InputItem::Text {
@@ -59,7 +55,7 @@ impl CodexClient {
         };
 
         let _: Value = self
-            .send_request(request, request_id, "sendUserMessage")
+            .send_request(request, "sendUserMessage")
             .await?;
         Ok(())
     }
@@ -69,47 +65,41 @@ impl CodexClient {
         thread_id: &ConversationId,
         turn_id: &str,
     ) -> Result<TurnInterruptResponse> {
-        let request_id = self.request_id();
         let request = ClientRequest::TurnInterrupt {
-            request_id: request_id.clone(),
+            request_id: self.request_id(),
             params: TurnInterruptParams {
                 thread_id: thread_id.to_string(),
                 turn_id: turn_id.to_string(),
             },
         };
 
-        self.send_request(request, request_id, "turn/interrupt")
-            .await
+        self.send_request(request, "turn/interrupt").await
     }
 
     pub(crate) async fn thread_start(&mut self, params: ThreadStartParams) -> Result<ThreadStartResponse> {
-        let request_id = self.request_id();
         let request = ClientRequest::ThreadStart {
-            request_id: request_id.clone(),
+            request_id: self.request_id(),
             params,
         };
 
-        self.send_request(request, request_id, "thread/start").await
+        self.send_request(request, "thread/start").await
     }
 
     pub(crate) async fn thread_resume(&mut self, params: ThreadResumeParams) -> Result<ThreadResumeResponse> {
-        let request_id = self.request_id();
         let request = ClientRequest::ThreadResume {
-            request_id: request_id.clone(),
+            request_id: self.request_id(),
             params,
         };
 
-        self.send_request(request, request_id, "thread/resume")
-            .await
+        self.send_request(request, "thread/resume").await
     }
 
     pub(crate) async fn turn_start(&mut self, params: TurnStartParams) -> Result<TurnStartResponse> {
-        let request_id = self.request_id();
         let request = ClientRequest::TurnStart {
-            request_id: request_id.clone(),
+            request_id: self.request_id(),
             params,
         };
 
-        self.send_request(request, request_id, "turn/start").await
+        self.send_request(request, "turn/start").await
     }
 }
