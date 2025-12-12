@@ -37,7 +37,6 @@ dirs = "6.0.0"
 toml = "0.9.8"
 uuid = { version = "1.11", features = ["v4", "serde"] }
 
-codex_bindings = { path = "../crates/codex_bindings" }
-
 codex-protocol = { git = "https://github.com/openai/codex.git", package = "codex-protocol" }
 codex-app-server-protocol = { git = "https://github.com/openai/codex.git", package = "codex-app-server-protocol" }
+tauri-plugin-shell = "2"
