@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { useCodexStore } from '@/stores/useCodexStore';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { SendIcon, Square } from 'lucide-react';
 import { renderEvent } from './EventItem';
+import { InputArea } from './InputArea';
+import { ProfilePopover } from './ProfilePopover';
+import { SandboxPolicyPopover } from './SandboxPolicyPopover';
+import { ReasoningEffortPopover } from './ReasoningEffortPopover';
 
 export function ChatInterface() {
   const {
@@ -16,8 +17,6 @@ export function ChatInterface() {
     turnInterrupt,
   } = useCodexStore();
 
-  const [inputMessage, setInputMessage] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Get events for the current thread
@@ -29,36 +28,6 @@ export function ChatInterface() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [currentThreadEvents]);
-
-  const handleSend = async () => {
-    if (!inputMessage.trim() || !currentThreadId || isProcessing) return;
-
-    const message = inputMessage.trim();
-    setInputMessage('');
-
-    try {
-      await turnStart(currentThreadId, message);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
-  };
-
-  const handleStop = async () => {
-    if (!currentThreadId || !currentTurnId) return;
-
-    try {
-      await turnInterrupt(currentThreadId, currentTurnId);
-    } catch (error) {
-      console.error('Failed to stop turn:', error);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -83,36 +52,25 @@ export function ChatInterface() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t p-4 bg-background">
-        <div className="max-w-3xl mx-auto flex gap-2">
-          <Textarea
-            ref={textareaRef}
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              currentThreadId
-                ? 'Type your message... (Enter to send, Shift+Enter for new line)'
-                : 'Select a thread first'
-            }
-            className="min-h-[60px] max-h-[200px] resize-none"
-            disabled={!currentThreadId}
-          />
-          {isProcessing ? (
-            <Button onClick={handleStop} variant="destructive" size="icon" className="h-[60px]">
-              <Square className="w-4 h-4" />
-            </Button>
-          ) : (
-            <Button
-              onClick={handleSend}
-              disabled={!inputMessage.trim() || !currentThreadId}
-              size="icon"
-              className="h-[60px]"
-            >
-              <SendIcon className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
+      <InputArea
+        currentThreadId={currentThreadId}
+        currentTurnId={currentTurnId}
+        isProcessing={isProcessing}
+        onSend={async (message) => {
+          if (!currentThreadId) return;
+          await turnStart(currentThreadId, message);
+        }}
+        onStop={async () => {
+          if (!currentThreadId || !currentTurnId) return;
+          await turnInterrupt(currentThreadId, currentTurnId);
+        }}
+      />
+
+      {/* Configuration Popovers */}
+      <div className="flex gap-2 px-4 py-2 border-t">
+        <SandboxPolicyPopover />
+        <ProfilePopover />
+        <ReasoningEffortPopover />
       </div>
     </div>
   );
