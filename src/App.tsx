@@ -1,6 +1,8 @@
 import "./App.css";
-import { invoke } from "@tauri-apps/api/core"
+import { ChatPage } from "./pages/chat-page";
 
 export default function App() {
-  return <div>hi</div>;
+  return (
+    <ChatPage />
+  );
 }
