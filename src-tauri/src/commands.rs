@@ -1,10 +1,10 @@
-use crate::codex::client::CodexClientHandle;
+use crate::codex::handles::CodexClientHandle;
 use crate::state::AppState;
 use anyhow::Result;
 use codex_app_server_protocol::{
-    ApprovalDecision, ExecPolicyAmendment, RequestId, ThreadResumeParams, ThreadResumeResponse,
-    ThreadStartParams, ThreadStartResponse, TurnInterruptParams, TurnInterruptResponse,
-    TurnStartParams, TurnStartResponse,
+    ApprovalDecision, ExecPolicyAmendment, RequestId, ThreadListParams, ThreadListResponse,
+    ThreadResumeParams, ThreadResumeResponse, ThreadStartParams, ThreadStartResponse,
+    TurnInterruptParams, TurnInterruptResponse, TurnStartParams, TurnStartResponse,
 };
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
@@ -58,20 +58,10 @@ pub async fn thread_start(
 ) -> Result<ThreadStartResponse, CodexError> {
     info!("thread_start called with params: {:?}", params);
 
-    let mut client_lock = state.codex_client.lock().unwrap();
-
-    // Initialize client if not already initialized
-    if client_lock.is_none() {
-        info!("Codex client not initialized, initializing now");
-        let handle = CodexClientHandle::spawn_and_initialize(app.clone()).map_err(|e| {
-            error!("Failed to spawn and initialize Codex client: {}", e);
-            e
-        })?;
-        *client_lock = Some(handle);
-        info!("Codex client initialization complete");
-    }
-
-    let handle = client_lock.as_ref().unwrap();
+    let handle = state.get_or_init_client(&app).map_err(|e| {
+        error!("Failed to get or initialize client: {}", e);
+        e
+    })?;
 
     info!("Calling handle.thread_start");
     let response = handle.thread_start(params).map_err(|e| {
@@ -90,12 +80,9 @@ pub async fn thread_resume(
 ) -> Result<ThreadResumeResponse, CodexError> {
     debug!("thread_resume called with params: {:?}", params);
 
-    let client_lock = state.codex_client.lock().unwrap();
-    let handle = client_lock.as_ref().ok_or_else(|| {
-        error!("thread_resume failed: Codex client not initialized");
-        CodexError {
-            message: "Codex client not initialized".to_string(),
-        }
+    let handle = state.get_client().map_err(|e| {
+        error!("thread_resume failed: {}", e);
+        e
     })?;
 
     let response = handle.thread_resume(params).map_err(|e| {
@@ -108,18 +95,37 @@ pub async fn thread_resume(
 }
 
 #[tauri::command]
+pub async fn thread_list(
+    params: ThreadListParams,
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<ThreadListResponse, CodexError> {
+    debug!("thread_list called with params: {:?}", params);
+
+    let handle = state.get_or_init_client(&app).map_err(|e| {
+        error!("thread_list failed: {}", e);
+        e
+    })?;
+
+    let response = handle.thread_list(params).map_err(|e| {
+        error!("thread_list execution failed: {}", e);
+        e
+    })?;
+
+    info!("thread_list completed successfully");
+    Ok(response)
+}
+
+#[tauri::command]
 pub async fn turn_start(
     params: TurnStartParams,
     state: State<'_, AppState>,
 ) -> Result<TurnStartResponse, CodexError> {
     debug!("turn_start called with params: {:?}", params);
 
-    let client_lock = state.codex_client.lock().unwrap();
-    let handle = client_lock.as_ref().ok_or_else(|| {
-        error!("turn_start failed: Codex client not initialized");
-        CodexError {
-            message: "Codex client not initialized".to_string(),
-        }
+    let handle = state.get_client().map_err(|e| {
+        error!("turn_start failed: {}", e);
+        e
     })?;
 
     let response = handle.turn_start(params).map_err(|e| {
@@ -138,12 +144,9 @@ pub async fn turn_interrupt(
 ) -> Result<TurnInterruptResponse, CodexError> {
     debug!("turn_interrupt called with params: {:?}", params);
 
-    let client_lock = state.codex_client.lock().unwrap();
-    let handle = client_lock.as_ref().ok_or_else(|| {
-        error!("turn_interrupt failed: Codex client not initialized");
-        CodexError {
-            message: "Codex client not initialized".to_string(),
-        }
+    let handle = state.get_client().map_err(|e| {
+        error!("turn_interrupt failed: {}", e);
+        e
     })?;
 
     let response = handle.turn_interrupt(params).map_err(|e| {
@@ -181,12 +184,9 @@ pub async fn respond_to_approval(
     debug!("respond_to_approval called with request_id: {}, decision: {:?}",
            response.request_id, response.decision);
 
-    let client_lock = state.codex_client.lock().unwrap();
-    let handle = client_lock.as_ref().ok_or_else(|| {
-        error!("respond_to_approval failed: Codex client not initialized");
-        CodexError {
-            message: "Codex client not initialized".to_string(),
-        }
+    let handle = state.get_client().map_err(|e| {
+        error!("respond_to_approval failed: {}", e);
+        e
     })?;
 
     let decision = match response.decision {

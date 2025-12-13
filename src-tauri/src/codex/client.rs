@@ -3,9 +3,7 @@ use codex_app_server_protocol::{
     ApprovalDecision, ClientInfo, ClientRequest, CommandExecutionRequestApprovalResponse,
     FileChangeRequestApprovalResponse, InitializeParams, InitializeResponse, JSONRPCMessage,
     JSONRPCRequest, JSONRPCResponse, RequestId, ServerNotification,
-    ServerRequest, ThreadResumeParams, ThreadResumeResponse, ThreadStartParams,
-    ThreadStartResponse, TurnInterruptParams, TurnInterruptResponse, TurnStartParams,
-    TurnStartResponse,
+    ServerRequest,
 };
 use serde_json::Value;
 use std::collections::HashMap;
@@ -15,116 +13,16 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 use tauri::Emitter;
 use uuid::Uuid;
 
+use crate::codex::handles::{ClientCommand, CodexClientHandle};
 use crate::codex::types::ApprovalRequest;
 use crate::codex_discovery;
-
-// Commands that can be sent to the client thread
-enum ClientCommand {
-    ThreadStart {
-        params: ThreadStartParams,
-        response_tx: Sender<Result<ThreadStartResponse>>,
-    },
-    ThreadResume {
-        params: ThreadResumeParams,
-        response_tx: Sender<Result<ThreadResumeResponse>>,
-    },
-    TurnStart {
-        params: TurnStartParams,
-        response_tx: Sender<Result<TurnStartResponse>>,
-    },
-    TurnInterrupt {
-        params: TurnInterruptParams,
-        response_tx: Sender<Result<TurnInterruptResponse>>,
-    },
-    RespondToApproval {
-        request_id: RequestId,
-        decision: ApprovalDecision,
-        is_command_execution: bool,
-    },
-}
-
-// Handle for communicating with the client thread
-pub struct CodexClientHandle {
-    command_tx: Sender<ClientCommand>,
-}
-
-impl Drop for CodexClientHandle {
-    fn drop(&mut self) {
-        log::info!("CodexClientHandle is being dropped");
-    }
-}
-
-impl CodexClientHandle {
-    pub fn spawn_and_initialize(app_handle: tauri::AppHandle) -> Result<Self> {
-        log::info!("CodexClientHandle::spawn_and_initialize called");
-        let handle = CodexClient::spawn_and_initialize(app_handle)?;
-        log::info!("CodexClientHandle created successfully");
-        Ok(handle)
-    }
-
-    pub fn thread_start(&self, params: ThreadStartParams) -> Result<ThreadStartResponse> {
-        let (response_tx, response_rx) = channel();
-        self.command_tx
-            .send(ClientCommand::ThreadStart { params, response_tx })
-            .context("Failed to send thread_start command")?;
-        response_rx
-            .recv()
-            .context("Failed to receive thread_start response")?
-    }
-
-    pub fn thread_resume(&self, params: ThreadResumeParams) -> Result<ThreadResumeResponse> {
-        let (response_tx, response_rx) = channel();
-        self.command_tx
-            .send(ClientCommand::ThreadResume { params, response_tx })
-            .context("Failed to send thread_resume command")?;
-        response_rx
-            .recv()
-            .context("Failed to receive thread_resume response")?
-    }
-
-    pub fn turn_start(&self, params: TurnStartParams) -> Result<TurnStartResponse> {
-        let (response_tx, response_rx) = channel();
-        self.command_tx
-            .send(ClientCommand::TurnStart { params, response_tx })
-            .context("Failed to send turn_start command")?;
-        response_rx
-            .recv()
-            .context("Failed to receive turn_start response")?
-    }
-
-    pub fn turn_interrupt(&self, params: TurnInterruptParams) -> Result<TurnInterruptResponse> {
-        let (response_tx, response_rx) = channel();
-        self.command_tx
-            .send(ClientCommand::TurnInterrupt { params, response_tx })
-            .context("Failed to send turn_interrupt command")?;
-        response_rx
-            .recv()
-            .context("Failed to receive turn_interrupt response")?
-    }
-
-    pub fn respond_to_approval(
-        &self,
-        request_id: RequestId,
-        decision: ApprovalDecision,
-        is_command_execution: bool,
-    ) -> Result<()> {
-        self.command_tx
-            .send(ClientCommand::RespondToApproval {
-                request_id,
-                decision,
-                is_command_execution,
-            })
-            .context("Failed to send respond_to_approval command")?;
-        Ok(())
-    }
-}
 
 enum EventLoopMessage {
     Command(ClientCommand),
     JsonRpcMessage(JSONRPCMessage),
 }
 
-struct CodexClient {
+pub(crate) struct CodexClient {
     child: Child,
     stdin: ChildStdin,
     app_handle: tauri::AppHandle,
@@ -215,7 +113,7 @@ impl CodexClient {
         });
 
         log::info!("Returning CodexClientHandle");
-        Ok(CodexClientHandle { command_tx })
+        Ok(CodexClientHandle::new(command_tx))
     }
 
     fn initialize(&mut self) -> Result<InitializeResponse> {
@@ -291,6 +189,15 @@ impl CodexClient {
             ClientCommand::ThreadResume { params, response_tx } => {
                 let request_id = self.request_id();
                 let request = ClientRequest::ThreadResume {
+                    request_id: request_id.clone(),
+                    params,
+                };
+                self.write_request(&request)?;
+                self.register_response_handler(request_id, response_tx);
+            }
+            ClientCommand::ThreadList { params, response_tx } => {
+                let request_id = self.request_id();
+                let request = ClientRequest::ThreadList {
                     request_id: request_id.clone(),
                     params,
                 };

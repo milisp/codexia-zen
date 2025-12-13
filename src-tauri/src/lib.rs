@@ -26,6 +26,7 @@ pub fn run() {
             commands::codex_initialize,
             commands::thread_start,
             commands::thread_resume,
+            commands::thread_list,
             commands::turn_start,
             commands::turn_interrupt,
             commands::respond_to_approval,

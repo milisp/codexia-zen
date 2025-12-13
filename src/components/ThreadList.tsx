@@ -1,14 +1,19 @@
 import { useCodexStore } from '@/stores/useCodexStore';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { PencilLine } from 'lucide-react';
+import { PencilLine, RefreshCw } from 'lucide-react';
 import type { ThreadStartParams } from '@/bindings/v2/ThreadStartParams';
+import type { ThreadListParams } from '@/bindings/v2/ThreadListParams';
+import type { ThreadListResponse } from '@/bindings/v2/ThreadListResponse';
 import { useConfigStore } from '@/stores/useConfigStore';
+import { invoke } from '@tauri-apps/api/core';
+import { useEffect, useState } from 'react';
 
 export function ThreadList() {
-  const { threads, currentThreadId, threadStart, setCurrentThread } =
+  const { threads, currentThreadId, threadStart, setCurrentThread, setThreads } =
     useCodexStore();
   const { sandbox, approvalPolicy, modelPerProvider, modelProvider, reasoningEffort, cwd } = useConfigStore();
+  const [isLoadingThreads, setIsLoadingThreads] = useState(false);
 
   const handleNewThread = async () => {
     try {
@@ -43,17 +48,47 @@ export function ThreadList() {
     }
   };
 
+  const loadThreads = async () => {
+    try {
+      setIsLoadingThreads(true);
+      const params: ThreadListParams = {
+        cursor: null,
+        limit: 20,
+        modelProviders: null,
+      };
+      const response = await invoke<ThreadListResponse>('thread_list', { params });
+      console.log('[ThreadList] Loaded threads:', response.data);
+      setThreads(response.data);
+    } catch (error) {
+      console.error('[ThreadList] Failed to load threads:', error);
+    } finally {
+      setIsLoadingThreads(false);
+    }
+  };
+
+  useEffect(() => {
+    loadThreads();
+  }, []);
+
   return (
-    <div className="w-64 border-r flex flex-col bg-muted/30">
+    <div className="w-64 border-r flex flex-col bg-muted/30 h-screen">
       {/* Header */}
-      <div className="flex px-2 justify-end">
+      <div className="flex px-2 justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={loadThreads}
+          size="icon"
+          disabled={isLoadingThreads}
+        >
+          <RefreshCw className={isLoadingThreads ? 'animate-spin' : ''} />
+        </Button>
         <Button variant="outline" onClick={handleNewThread} size="icon">
           <PencilLine />
         </Button>
       </div>
 
       {/* Thread List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-2 space-y-1">
           {threads.map((thread) => (
             <button

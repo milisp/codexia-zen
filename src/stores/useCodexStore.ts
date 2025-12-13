@@ -28,6 +28,7 @@ interface CodexStore {
   turnStart: (threadId: string, input: string) => Promise<Turn>;
   turnInterrupt: (threadId: string, turnId: string) => Promise<void>;
   setCurrentThread: (threadId: string | null) => Promise<void>;
+  setThreads: (threads: Thread[]) => void;
   addEvent: (threadId: string, event: ChatEvent) => void;
   clearError: () => void;
 }
@@ -164,6 +165,10 @@ export const useCodexStore = create<CodexStore>((set, get) => ({
     } else {
       set({ currentThreadId: threadId, currentTurnId: null });
     }
+  },
+
+  setThreads: (threads: Thread[]) => {
+    set({ threads });
   },
 
   addEvent: (threadId: string, event: ChatEvent) => {
