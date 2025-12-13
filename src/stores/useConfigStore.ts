@@ -28,12 +28,15 @@ export interface ConfigStore {
   // Reasoning effort
   reasoningEffort: ReasoningEffort;
 
+  cwd: string;
+
   // Actions
   setModelProvider: (provider: ModelProvider) => void;
   setModel: (model: string) => void;
   setSandboxMode: (sandbox: SandboxMode) => void;
   setApprovalPolicy: (approval: AskForApproval) => void;
   setReasoningEffort: (effort: ReasoningEffort) => void;
+  setCwd: (cwd: string) => void;
 }
 
 // Sandbox to ApprovalPolicy mapping
@@ -58,13 +61,14 @@ export const useConfigStore = create<ConfigStore>()(
       modelProvider: 'ollama',
       modelPerProvider: {
         ollama: 'qwen2.5-coder:0.5b',
-        anthropic: 'claude-3-5-sonnet-20241022',
-        openai: 'gpt-4',
+        anthropic: 'claude-4-5-sonnet',
+        openai: 'gpt-5',
         mock: 'llm'
       },
       sandbox: 'read-only',
       approvalPolicy: 'untrusted',
       reasoningEffort: 'medium',
+      cwd: "/",
 
       setModelProvider: (provider: ModelProvider) => {
         set({ modelProvider: provider });
@@ -90,6 +94,10 @@ export const useConfigStore = create<ConfigStore>()(
 
       setReasoningEffort: (effort: ReasoningEffort) => {
         set({ reasoningEffort: effort });
+      },
+
+      setCwd: (cwd: string) => {
+        set({ cwd: cwd });
       },
     }),
     {

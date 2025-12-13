@@ -3,23 +3,25 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PencilLine } from 'lucide-react';
 import type { ThreadStartParams } from '@/bindings/v2/ThreadStartParams';
+import { useConfigStore } from '@/stores/useConfigStore';
 
 export function ThreadList() {
   const { threads, currentThreadId, threadStart, setCurrentThread } =
     useCodexStore();
+  const { sandbox, approvalPolicy, modelPerProvider, modelProvider, reasoningEffort, cwd } = useConfigStore();
 
   const handleNewThread = async () => {
     try {
       const params: ThreadStartParams = {
-        model: "qwen2.5-coder:0.5b",
-        modelProvider: "ollama",
-        cwd: "/tmp",
-        approvalPolicy: "untrusted",
-        sandbox: "read-only",
+        model: modelPerProvider[modelProvider],
+        modelProvider: modelProvider,
+        cwd: cwd,
+        approvalPolicy: approvalPolicy,
+        sandbox: sandbox,
         baseInstructions: null,
         developerInstructions: null,
         config: {
-          "model_reasoning_effort": "medium",
+          "model_reasoning_effort": reasoningEffort,
           "show_raw_agent_reasoning": true,
           "model_reasoning_summary": "auto",
         }
@@ -45,7 +47,7 @@ export function ThreadList() {
     <div className="w-64 border-r flex flex-col bg-muted/30">
       {/* Header */}
       <div className="flex px-2 justify-end">
-        <Button onClick={handleNewThread} size="icon">
+        <Button variant="outline" onClick={handleNewThread} size="icon">
           <PencilLine />
         </Button>
       </div>
