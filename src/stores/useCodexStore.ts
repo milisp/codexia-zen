@@ -11,6 +11,7 @@ import type { TurnStartParams } from '@/bindings/v2/TurnStartParams';
 import type { TurnStartResponse } from '@/bindings/v2/TurnStartResponse';
 import type { TurnInterruptParams } from '@/bindings/v2/TurnInterruptParams';
 import type { UserInput } from '@/bindings/v2/UserInput';
+import { convertThreadHistoryToEvents } from '@/utils/threadHistoryConverter';
 
 interface CodexStore {
   // State
@@ -72,6 +73,7 @@ export const useCodexStore = create<CodexStore>((set, get) => ({
   },
 
   threadResume: async (threadId: string) => {
+    console.log('[Store] threadResume called with threadId:', threadId);
     try {
       set({ error: null, isProcessing: true });
       const params: ThreadResumeParams = {
@@ -87,17 +89,32 @@ export const useCodexStore = create<CodexStore>((set, get) => ({
         baseInstructions: null,
         developerInstructions: null,
       };
-      await invoke<ThreadResumeResponse>('thread_resume', { params });
+      console.log('[Store] Calling backend thread_resume with params:', params);
+      const response = await invoke<ThreadResumeResponse>('thread_resume', { params });
+      console.log('[Store] Backend thread_resume response:', response);
 
-      set((state) => ({
-        currentThreadId: threadId,
-        isProcessing: false,
-        activeThreadIds: state.activeThreadIds.includes(threadId)
-          ? state.activeThreadIds
-          : [...state.activeThreadIds, threadId],
-        events: state.events[threadId] ? state.events : { ...state.events, [threadId]: [] },
-      }));
+      // Convert thread history to events
+      const historicalEvents = convertThreadHistoryToEvents(response.thread);
+      console.log('[Store] Converted historical events:', historicalEvents);
+
+      set((state) => {
+        const newState = {
+          currentThreadId: threadId,
+          isProcessing: false,
+          activeThreadIds: state.activeThreadIds.includes(threadId)
+            ? state.activeThreadIds
+            : [...state.activeThreadIds, threadId],
+          events: {
+            ...state.events,
+            [threadId]: historicalEvents,
+          },
+        };
+        console.log('[Store] threadResume setting new state:', newState);
+        return newState;
+      });
+      console.log('[Store] threadResume completed');
     } catch (error: any) {
+      console.error('[Store] threadResume error:', error);
       set({ error: error.message || 'Failed to resume thread', isProcessing: false });
       throw error;
     }
@@ -152,19 +169,26 @@ export const useCodexStore = create<CodexStore>((set, get) => ({
   },
 
   setCurrentThread: async (threadId: string | null) => {
+    console.log('[Store] setCurrentThread called with threadId:', threadId);
     if (!threadId) {
+      console.log('[Store] Clearing current thread');
       set({ currentThreadId: null, currentTurnId: null, isProcessing: false });
       return;
     }
 
     const state = get();
+    console.log('[Store] activeThreadIds:', state.activeThreadIds);
+    console.log('[Store] Is thread in activeThreadIds?', state.activeThreadIds.includes(threadId));
 
     // If thread is not active, resume it first
     if (!state.activeThreadIds.includes(threadId)) {
+      console.log('[Store] Thread not active, calling threadResume...');
       await get().threadResume(threadId);
     } else {
+      console.log('[Store] Thread already active, just switching to it');
       set({ currentThreadId: threadId, currentTurnId: null });
     }
+    console.log('[Store] setCurrentThread completed');
   },
 
   setThreads: (threads: Thread[]) => {

@@ -23,6 +23,13 @@ export function ChatInterface() {
   // Get events for the current thread
   const currentThreadEvents = currentThreadId ? events[currentThreadId] || [] : [];
 
+  // Debug logging
+  useEffect(() => {
+    console.log('[ChatInterface] currentThreadId changed:', currentThreadId);
+    console.log('[ChatInterface] events for thread:', currentThreadEvents);
+    console.log('[ChatInterface] all events:', events);
+  }, [currentThreadId, currentThreadEvents, events]);
+
   // Auto-scroll to bottom when new events arrive
   useEffect(() => {
     if (scrollRef.current) {

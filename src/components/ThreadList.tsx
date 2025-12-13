@@ -39,12 +39,20 @@ export function ThreadList() {
   };
 
   const handleSelectThread = async (threadId: string) => {
-    if (threadId === currentThreadId) return;
+    console.log('[ThreadList] handleSelectThread called with threadId:', threadId);
+    console.log('[ThreadList] currentThreadId:', currentThreadId);
+
+    if (threadId === currentThreadId) {
+      console.log('[ThreadList] Thread already selected, skipping');
+      return;
+    }
 
     try {
+      console.log('[ThreadList] Calling setCurrentThread...');
       await setCurrentThread(threadId);
+      console.log('[ThreadList] setCurrentThread completed');
     } catch (error) {
-      console.error('Failed to switch thread:', error);
+      console.error('[ThreadList] Failed to switch thread:', error);
     }
   };
 
