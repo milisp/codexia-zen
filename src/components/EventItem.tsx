@@ -1,48 +1,47 @@
 import { ChatEvent } from "@/types/ChatEvent";
-import { Badge } from "lucide-react";
+import { Badge } from "./ui/badge";
 
 export const renderEvent = (event: ChatEvent, index: number) => {
-    // Handle user input
-    if (event.method === 'user_input') {
+  switch (event.method) {
+    case "user_input":
       return (
         <div key={index} className="mb-4 p-3 bg-primary/10 rounded-lg">
           <div className="text-sm">{event.params.text}</div>
         </div>
       );
-    }
 
-    if (event.method === 'item/agentMessage/delta') {
+    case "item/agentMessage/delta":
       return (
         <div key={index} className="text-sm">
           {event.params.delta}
         </div>
       );
-    }
+    case "error":
+      return <Badge>{event.params.error.message}</Badge>;
 
-    // Handle turn started - don't display, we handle user input separately
-    if (event.method === 'turn/started') {
+    case "item/started":
+      const { item } = event.params;
+      switch (item.type) {
+        case "reasoning":
+          return (
+            <div key={index} className="text-xs text-muted-foreground italic">
+              {item.summary.map((s, i) => (
+                <div key={i}>{s}</div>
+              ))}
+            </div>
+          );
+        default:
+          return <Badge>{item.type}</Badge>
+      }
+    case "item/completed":
+    case "turn/started":
+    case "turn/completed":
       return null;
-    }
 
-    if (event.method === 'error') {
-      return <Badge>{event.params.error.message}</Badge>
-    }
-
-    if (event.method === 'item/started') {
+    default:
       return (
-        <div key={index} className="text-xs text-muted-foreground italic">
-          {event.params.item.type || 'Item started'}
-        </div>
-      );
-    }
-
-    if (event.method === 'item/completed') {
-      return null; // Don't show completed items in the UI
-    }
-
-    if (event.method === 'turn/completed') {
-      return null;
-    }
-
-    return null;
-  };
+        <pre>
+          <code>{JSON.stringify(event.params, null, 2)}</code>
+        </pre>);
+  }
+};
