@@ -1,18 +1,31 @@
 import { Settings } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useConfigStore, PROVIDER_MODELS, type ModelProvider } from '@/stores/useConfigStore';
+import { useConfigStore } from '@/stores/useConfigStore';
 import { cn } from '@/lib/utils';
 
 export function ProfilePopover() {
-  const { modelProvider, modelPerProvider, setModelProvider, setModel } = useConfigStore()
+  const { modelProvider, modelPerProvider, providerModels, setModelProvider, setModel, initializeModels } = useConfigStore();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await initializeModels();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    init();
+  }, [initializeModels]);
 
   const currentModel = modelPerProvider[modelProvider];
-  const providers: ModelProvider[] = ['ollama', 'anthropic', 'openai'];
+  const providers = Object.keys(providerModels);
 
   return (
     <Popover>
@@ -23,7 +36,10 @@ export function ProfilePopover() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80">
-      <div className="flex divide-x">
+        {isLoading ? (
+          <div className="p-4 text-sm text-muted-foreground">Loading...</div>
+        ) : (
+          <div className="flex divide-x">
         {/* Left: Providers */}
         <div className="w-[140px] p-2 space-y-1">
           <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Provider</div>
@@ -44,7 +60,7 @@ export function ProfilePopover() {
           {/* Right: Models */}
           <div className="flex-1 p-2 space-y-1">
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Model</div>
-            {PROVIDER_MODELS[modelProvider].map((model) => (
+            {providerModels[modelProvider]?.map((model) => (
               <button
                 key={model}
                 onClick={() => setModel(model)}
@@ -58,6 +74,7 @@ export function ProfilePopover() {
             ))}
           </div>
         </div>
+        )}
       </PopoverContent>
     </Popover>
   );

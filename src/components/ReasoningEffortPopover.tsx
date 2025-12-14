@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 
 export function ReasoningEffortPopover() {
   const { reasoningEffort, setReasoningEffort } = useConfigStore();
-  const efforts: ReasoningEffort[] = ['low', 'medium', 'high'];
+  const efforts: ReasoningEffort[] = ['low', 'medium', 'high', 'xhigh'];
 
   return (
     <Popover>
