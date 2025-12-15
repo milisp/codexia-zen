@@ -77,7 +77,7 @@ create a file `~/.codex/profile.json`
 }
 ```
 
-config model_providers at `~/.config/config.toml`
+config model_providers at `~/.codex/config.toml`
 
 ```toml
 [model_providers.openrouter]
