@@ -45,6 +45,11 @@ cd codexia-zen
 bun install
 ```
 
+Generate codex ts bindings
+```sh
+codex app-server generate-ts -o src/bindings
+```
+
 Run development build:
 ```bash
 bun tauri dev
